@@ -129,6 +129,29 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Explains what the colour temperature slider is actually doing — which
+    /// matters here more than for brightness, because the gamma ramp has two
+    /// ways of not working that look identical from the outside.
+    /// </summary>
+    public string TemperatureStatus
+    {
+        get
+        {
+            if (!_coordinator.ColorTemperatureSupported)
+            {
+                return "No display accepted a colour lookup table, so colour temperature cannot be applied on this machine.";
+            }
+
+            if (_coordinator.ColorTemperatureRejected)
+            {
+                return "Windows refused this ramp. It limits how far a gamma ramp may deviate from linear, which is what strongly warm settings run into.";
+            }
+
+            return $"{AppSettings.NeutralTemperatureKelvin} K is the neutral white point: no tint is applied.";
+        }
+    }
+
     public string DisplaySummary => Displays.Count switch
     {
         0 => "No displays detected",
@@ -155,7 +178,14 @@ public sealed partial class ControlPanelViewModel : ObservableObject
 
     partial void OnBrightnessChanged(double value) => Persist(s => s.Brightness = value);
 
-    partial void OnTemperatureKelvinChanged(int value) => Persist(s => s.TemperatureKelvin = value);
+    partial void OnTemperatureKelvinChanged(int value)
+    {
+        Persist(s => s.TemperatureKelvin = value);
+
+        // The ramp may be refused at one end of the slider and accepted at the
+        // other, so the explanation has to be re-read after every change.
+        OnPropertyChanged(nameof(TemperatureStatus));
+    }
 
     partial void OnAutomationEnabledChanged(bool value) => Persist(s => s.AutomationEnabled = value);
 
@@ -197,6 +227,7 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(BacklightSummary));
+        OnPropertyChanged(nameof(TemperatureStatus));
     }
 
     private static string DescribeMechanism(BrightnessMechanism mechanism) => mechanism switch

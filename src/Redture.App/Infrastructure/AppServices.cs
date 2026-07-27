@@ -6,6 +6,7 @@ using Redture.Core;
 using Redture.Core.Infrastructure;
 using Redture.Platform.Abstractions.Brightness;
 using Redture.Platform.Abstractions.Displays;
+using Redture.Platform.Abstractions.Gamma;
 using Redture.Platform.Abstractions.Overlay;
 using Redture.Platform.Abstractions.SystemEvents;
 using Redture.Platform.Windows;
@@ -67,6 +68,7 @@ internal static class AppServices
         services.AddSingleton<IDisplayEnumerator, UnsupportedDisplayEnumerator>();
         services.AddSingleton<IOverlayController, NullOverlayController>();
         services.AddSingleton<IHardwareBrightnessController, NullHardwareBrightnessController>();
+        services.AddSingleton<IGammaController, NullGammaController>();
         services.AddSingleton<ISystemEvents, NullSystemEvents>();
     }
 }

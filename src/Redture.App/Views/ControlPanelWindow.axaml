@@ -58,9 +58,9 @@
               BorderBrush="#80F0A030"
               BorderThickness="1">
         <StackPanel>
-          <TextBlock Classes="section" Text="Stage 1.5 — brightness" />
+          <TextBlock Classes="section" Text="Stage 2 — colour temperature" />
           <TextBlock Classes="hint"
-                     Text="Brightness is live: real backlight where the hardware allows it, software dimming past the hardware minimum. Colour temperature still only persists to disk; it starts affecting the screen in stage 2." />
+                     Text="Both controls are live. Brightness uses real backlight where the hardware allows it and a black overlay past the hardware minimum; colour temperature goes through the display's gamma ramp. Scheduling arrives in stage 3." />
           <TextBlock Classes="hint" Margin="0,6,0,0" Text="{Binding PanicHotkeyHint}" />
         </StackPanel>
       </Border>
@@ -112,8 +112,9 @@
             <TextBlock Grid.Column="0" Classes="hint" Text="warm" />
             <TextBlock Grid.Column="2" Classes="hint" Text="cool" />
           </Grid>
+          <TextBlock Classes="hint" Margin="0,6,0,0" Text="{Binding TemperatureStatus}" />
           <TextBlock Classes="hint" Margin="0,6,0,0"
-                     Text="6500 K is the neutral white point: no tint is applied. Not wired to the screen yet — stage 2." />
+                     Text="Applied through the display's colour lookup table, before compositing — so the tint costs nothing to draw and never lifts the black level." />
         </StackPanel>
       </Border>
 

@@ -26,8 +26,18 @@ public sealed class AppSettings
     /// <summary>Highest perceived brightness: no dimming at all.</summary>
     public const double MaxBrightness = 100d;
 
-    /// <summary>Warmest colour temperature offered, in kelvin (deep amber).</summary>
-    public const int MinTemperatureKelvin = 1000;
+    /// <summary>
+    /// Warmest colour temperature offered, in kelvin (deep amber).
+    /// </summary>
+    /// <remarks>
+    /// The slider stops here because the maths does: the Planckian locus
+    /// approximation Redture uses is published for 1667 K upwards, and
+    /// extrapolating a cubic spline past the data it was fitted to produces
+    /// chromaticities outside the visible gamut. Offering colder-looking
+    /// numbers that all render identically would be a worse answer than
+    /// stopping where the model is valid.
+    /// </remarks>
+    public const int MinTemperatureKelvin = 1700;
 
     /// <summary>Coolest colour temperature offered, in kelvin (blue-ish).</summary>
     public const int MaxTemperatureKelvin = 10000;

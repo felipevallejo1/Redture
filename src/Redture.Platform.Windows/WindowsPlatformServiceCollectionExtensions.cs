@@ -2,10 +2,12 @@ using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
 using Redture.Platform.Abstractions.Brightness;
 using Redture.Platform.Abstractions.Displays;
+using Redture.Platform.Abstractions.Gamma;
 using Redture.Platform.Abstractions.Overlay;
 using Redture.Platform.Abstractions.SystemEvents;
 using Redture.Platform.Windows.Brightness;
 using Redture.Platform.Windows.Displays;
+using Redture.Platform.Windows.Gamma;
 using Redture.Platform.Windows.Overlay;
 using Redture.Platform.Windows.SystemEvents;
 
@@ -29,6 +31,7 @@ public static class WindowsPlatformServiceCollectionExtensions
         services.AddSingleton<IDisplayEnumerator, WindowsDisplayEnumerator>();
         services.AddSingleton<IOverlayController, WindowsOverlayController>();
         services.AddSingleton<IHardwareBrightnessController, WindowsHardwareBrightnessController>();
+        services.AddSingleton<IGammaController, WindowsGammaController>();
         services.AddSingleton<ISystemEvents, WindowsSystemEvents>();
 
         return services;

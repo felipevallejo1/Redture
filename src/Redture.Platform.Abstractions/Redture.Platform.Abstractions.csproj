@@ -9,4 +9,11 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The platform contracts speak the domain's language: a gamma controller
+         takes a GammaRamp, not a bare array. The dependency only goes one way,
+         since Redture.Core knows nothing about platforms. -->
+    <ProjectReference Include="..\Redture.Core\Redture.Core.csproj" />
+  </ItemGroup>
+
 </Project>

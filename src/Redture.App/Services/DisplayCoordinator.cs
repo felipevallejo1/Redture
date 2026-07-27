@@ -1,8 +1,11 @@
 using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 using Redture.Core.Brightness;
+using Redture.Core.Color;
+using Redture.Core.Infrastructure;
 using Redture.Core.Settings;
 using Redture.Platform.Abstractions.Brightness;
+using Redture.Platform.Abstractions.Gamma;
 using Redture.Platform.Abstractions.Overlay;
 using Redture.Platform.Abstractions.SystemEvents;
 
@@ -36,7 +39,9 @@ public sealed class DisplayCoordinator : IDisposable
     private readonly ISettingsStore _settingsStore;
     private readonly IOverlayController _overlay;
     private readonly IHardwareBrightnessController _hardware;
+    private readonly IGammaController _gamma;
     private readonly ISystemEvents _systemEvents;
+    private readonly CleanShutdownSentinel _sentinel;
     private readonly ILogger<DisplayCoordinator> _logger;
 
     /// <summary>Debounce ticket; see <see cref="OnDisplaysChanged"/>.</summary>
@@ -56,13 +61,17 @@ public sealed class DisplayCoordinator : IDisposable
         ISettingsStore settingsStore,
         IOverlayController overlay,
         IHardwareBrightnessController hardware,
+        IGammaController gamma,
         ISystemEvents systemEvents,
+        CleanShutdownSentinel sentinel,
         ILogger<DisplayCoordinator> logger)
     {
         _settingsStore = settingsStore;
         _overlay = overlay;
         _hardware = hardware;
+        _gamma = gamma;
         _systemEvents = systemEvents;
+        _sentinel = sentinel;
         _logger = logger;
     }
 
@@ -82,6 +91,15 @@ public sealed class DisplayCoordinator : IDisposable
     /// <summary>Brightness value at which the backlight hands over to the overlay.</summary>
     public double BacklightSplitPoint => BrightnessMapper.DefaultHardwareSplitPoint;
 
+    /// <summary>Whether any display accepted a colour lookup table.</summary>
+    public bool ColorTemperatureSupported => _gamma.IsSupported;
+
+    /// <summary>
+    /// True when the OS refused the ramp — on Windows, usually its restriction
+    /// on how far a ramp may deviate from linear.
+    /// </summary>
+    public bool ColorTemperatureRejected => _gamma.LastRampRejected;
+
     /// <summary>
     /// Subscribes to OS notifications and applies the stored state. Must run on
     /// the UI thread: the overlay and the message window both create window
@@ -99,10 +117,19 @@ public sealed class DisplayCoordinator : IDisposable
         _started = true;
 
         _systemEvents.DisplaysChanged += OnDisplaysChanged;
+        _systemEvents.SessionResumed += OnSessionResumed;
         _systemEvents.PanicRequested += OnPanicRequested;
         _systemEvents.Start();
 
-        // Overlay first, so the stored dimming is on screen immediately.
+        // A gamma ramp survives the process that set it. If the previous run
+        // was killed, the display may still be carrying its tint with nothing
+        // left to explain it, so clear the slate before applying anything.
+        if (_sentinel.PreviousRunWasUnclean)
+        {
+            _logger.LogInformation("Previous run ended abnormally; forcing displays back to a linear ramp first.");
+            _gamma.ResetToLinear();
+        }
+
         Apply();
 
         // Backlight discovery is deliberately not on this path: probing DDC/CI
@@ -128,6 +155,7 @@ public sealed class DisplayCoordinator : IDisposable
         if (!settings.EffectsEnabled)
         {
             _overlay.SetOpacity(0d);
+            _gamma.Apply(GammaRamp.Linear);
 
             if (!_backlightReleased)
             {
@@ -139,6 +167,8 @@ public sealed class DisplayCoordinator : IDisposable
         }
 
         _backlightReleased = false;
+
+        _gamma.Apply(GammaRampBuilder.Build(settings.TemperatureKelvin));
 
         BrightnessPlan plan = BrightnessMapper.Map(
             settings.Brightness,
@@ -263,6 +293,28 @@ public sealed class DisplayCoordinator : IDisposable
     }
 
     /// <summary>
+    /// Repairs the colour correction after Windows discarded it.
+    /// </summary>
+    /// <remarks>
+    /// A lock screen, a UAC prompt or a user switch resets the LUT without
+    /// telling anyone. The controller is told to forget what it believes the
+    /// driver holds, because that belief is exactly what is now wrong.
+    /// </remarks>
+    private void OnSessionResumed(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _logger.LogInformation("Session resumed; re-applying colour correction.");
+            _gamma.Refresh();
+        });
+    }
+
+    /// <summary>
     /// Returns the screen to a neutral state. This is the guarantee that a user
     /// who dims to near-black can always get back — it must work even if the
     /// control panel is unreachable behind the overlay.
@@ -303,7 +355,13 @@ public sealed class DisplayCoordinator : IDisposable
         _disposed = true;
 
         _systemEvents.DisplaysChanged -= OnDisplaysChanged;
+        _systemEvents.SessionResumed -= OnSessionResumed;
         _systemEvents.PanicRequested -= OnPanicRequested;
+
+        // Order matters. The gamma ramp is global driver state that outlives
+        // this process, so it is the one thing that must be handed back first
+        // and unconditionally.
+        _gamma.Dispose();
 
         // Disposing the backlight controller restores every display to the
         // level it had before Redture started.

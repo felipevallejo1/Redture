@@ -41,6 +41,7 @@ public sealed class WindowsSystemEvents : ISystemEvents
 
     private nint _handle;
     private bool _hotkeyRegistered;
+    private bool _sessionNotificationsRegistered;
     private bool _started;
     private bool _disposed;
 
@@ -51,6 +52,8 @@ public sealed class WindowsSystemEvents : ISystemEvents
     }
 
     public event EventHandler? DisplaysChanged;
+
+    public event EventHandler? SessionResumed;
 
     public event EventHandler? PanicRequested;
 
@@ -89,6 +92,7 @@ public sealed class WindowsSystemEvents : ISystemEvents
         }
 
         RegisterPanicHotkey();
+        RegisterSessionNotifications();
 
         _logger.LogInformation(
             "System event listener started. Panic hotkey: {Hotkey}.",
@@ -139,6 +143,24 @@ public sealed class WindowsSystemEvents : ISystemEvents
     }
 
     /// <summary>
+    /// Subscribes to lock/unlock notifications. Not fatal if it fails: the app
+    /// still works, it just will not repair the gamma ramp after a lock screen.
+    /// </summary>
+    private void RegisterSessionNotifications()
+    {
+        _sessionNotificationsRegistered = Wtsapi32.WTSRegisterSessionNotification(
+            _handle,
+            Wtsapi32.NotifyForThisSession);
+
+        if (!_sessionNotificationsRegistered)
+        {
+            _logger.LogWarning(
+                "Could not subscribe to session notifications (error {Error}); colour correction will not be re-applied automatically after a lock screen.",
+                Marshal.GetLastWin32Error());
+        }
+    }
+
+    /// <summary>
     /// Window procedure. Runs on the UI thread, called from native code — an
     /// exception escaping here would tear the process down without a managed
     /// stack trace, so everything is caught and logged.
@@ -153,6 +175,11 @@ public sealed class WindowsSystemEvents : ISystemEvents
                 case User32.WmDpiChanged:
                     _logger.LogDebug("Display configuration changed (message 0x{Message:X4}).", message);
                     DisplaysChanged?.Invoke(this, EventArgs.Empty);
+                    break;
+
+                case Wtsapi32.WmWtsSessionChange when (int)wParam is Wtsapi32.SessionUnlock or Wtsapi32.SessionLogon:
+                    _logger.LogDebug("Session resumed (event {Event}).", (int)wParam);
+                    SessionResumed?.Invoke(this, EventArgs.Empty);
                     break;
 
                 case User32.WmHotkey when (int)wParam == PanicHotkeyId:
@@ -190,6 +217,12 @@ public sealed class WindowsSystemEvents : ISystemEvents
         {
             User32.UnregisterHotKey(_handle, PanicHotkeyId);
             _hotkeyRegistered = false;
+        }
+
+        if (_sessionNotificationsRegistered)
+        {
+            Wtsapi32.WTSUnRegisterSessionNotification(_handle);
+            _sessionNotificationsRegistered = false;
         }
 
         User32.DestroyWindow(_handle);

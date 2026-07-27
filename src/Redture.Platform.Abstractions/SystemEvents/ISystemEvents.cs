@@ -18,6 +18,17 @@ public interface ISystemEvents : IDisposable
     event EventHandler? DisplaysChanged;
 
     /// <summary>
+    /// Raised when the session comes back from a lock, a secure desktop or a
+    /// user switch.
+    /// </summary>
+    /// <remarks>
+    /// These transitions silently discard the gamma ramp. Without this signal
+    /// the display would come back uncorrected and stay that way until the user
+    /// happened to change something.
+    /// </remarks>
+    event EventHandler? SessionResumed;
+
+    /// <summary>
     /// Raised when the user presses the panic hotkey. The contract is absolute:
     /// whatever state the app is in, this must return the screen to normal.
     /// It is the escape hatch for a deeply dimmed screen.

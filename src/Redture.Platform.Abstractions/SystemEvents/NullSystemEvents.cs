@@ -15,6 +15,8 @@ public sealed class NullSystemEvents : ISystemEvents
 #pragma warning disable CS0067 // Never raised on this platform, by design.
     public event EventHandler? DisplaysChanged;
 
+    public event EventHandler? SessionResumed;
+
     public event EventHandler? PanicRequested;
 #pragma warning restore CS0067
 
