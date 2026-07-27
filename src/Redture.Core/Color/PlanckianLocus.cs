@@ -5,27 +5,35 @@ namespace Redture.Core.Color;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The chain is: temperature → CIE 1931 chromaticity on the Planckian locus →
-/// XYZ → linear sRGB → gains relative to the neutral white point.
+/// The chain is: temperature → CIE 1931 chromaticity of a black body → XYZ →
+/// linear sRGB → gains relative to the neutral white point.
 /// </para>
 /// <para>
-/// The locus is evaluated with Kim et al.'s cubic-spline approximation rather
-/// than by integrating Planck's law against the CIE colour-matching functions.
-/// The approximation is accurate to well under a just-noticeable difference
-/// across its domain and costs a handful of multiplications, which matters
-/// because this runs on every step of a transition.
+/// The chromaticity comes from <see cref="Blackbody"/>, which integrates
+/// Planck's law directly. An earlier version used a published cubic-spline
+/// approximation instead; it was accurate and cheaper, but only defined from
+/// 1667 K upwards, and that limit became a limit on how warm the application
+/// could go.
 /// </para>
 /// </remarks>
 public static class PlanckianLocus
 {
     /// <summary>
-    /// Lowest temperature the approximation is defined for. Below this the
-    /// published domain ends, and extrapolating a cubic outside the data it was
-    /// fitted to produces chromaticities that leave the visible gamut entirely.
+    /// Lowest temperature evaluated, and the point at which the model
+    /// saturates.
     /// </summary>
-    public const double MinimumKelvin = 1667d;
+    /// <remarks>
+    /// Not a limit of the physics, which is valid at any temperature, but the
+    /// temperature below which nothing further happens. Measured rather than
+    /// assumed: green reaches exactly zero here, so the display is emitting
+    /// red and nothing else, and every lower temperature produces an identical
+    /// ramp. For reference, green is still at 0.030 at 1000 K and 0.205 at
+    /// 1700 K, so the last two hundred kelvin are where an amber screen finally
+    /// becomes a red one.
+    /// </remarks>
+    public const double MinimumKelvin = 800d;
 
-    /// <summary>Highest temperature the approximation is defined for.</summary>
+    /// <summary>Highest temperature offered.</summary>
     public const double MaximumKelvin = 25000d;
 
     /// <summary>
@@ -126,30 +134,7 @@ public static class PlanckianLocus
         return (Math.Max(r, 0d), Math.Max(g, 0d), Math.Max(b, 0d));
     }
 
-    /// <summary>
-    /// CIE 1931 chromaticity of the Planckian locus, by the cubic-spline
-    /// approximation of Kim, Moon, Hwang and Kim.
-    /// </summary>
-    private static (double X, double Y) Chromaticity(double kelvin)
-    {
-        double t = Math.Clamp(kelvin, MinimumKelvin, MaximumKelvin);
-        double t2 = t * t;
-        double t3 = t2 * t;
-
-        double x = t <= 4000d
-            ? (-0.2661239e9 / t3) - (0.2343589e6 / t2) + (0.8776956e3 / t) + 0.179910
-            : (-3.0258469e9 / t3) + (2.1070379e6 / t2) + (0.2226347e3 / t) + 0.240390;
-
-        double x2 = x * x;
-        double x3 = x2 * x;
-
-        double y = t switch
-        {
-            <= 2222d => (-1.1063814 * x3) - (1.34811020 * x2) + (2.18555832 * x) - 0.20219683,
-            <= 4000d => (-0.9549476 * x3) - (1.37418593 * x2) + (2.09137015 * x) - 0.16748867,
-            _ => (3.0817580 * x3) - (5.87338670 * x2) + (3.75112997 * x) - 0.37001483,
-        };
-
-        return (x, y);
-    }
+    /// <summary>CIE 1931 chromaticity of a black body, clamped to the offered range.</summary>
+    private static (double X, double Y) Chromaticity(double kelvin) =>
+        Blackbody.Chromaticity(Math.Clamp(kelvin, MinimumKelvin, MaximumKelvin));
 }

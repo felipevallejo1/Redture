@@ -30,14 +30,23 @@ public sealed class AppSettings
     /// Warmest colour temperature offered, in kelvin (deep amber).
     /// </summary>
     /// <remarks>
-    /// The slider stops here because the maths does: the Planckian locus
-    /// approximation Redture uses is published for 1667 K upwards, and
-    /// extrapolating a cubic spline past the data it was fitted to produces
-    /// chromaticities outside the visible gamut. Offering colder-looking
-    /// numbers that all render identically would be a worse answer than
-    /// stopping where the model is valid.
+    /// <para>
+    /// Blue is already fully extinguished by about 2000 K, so everything below
+    /// that is about removing green as well — the difference between an amber
+    /// screen and a genuinely red one. At this floor green reaches zero too and
+    /// the display emits red only.
+    /// </para>
+    /// <para>
+    /// The value is where the model saturates: every temperature below it
+    /// produces an identical ramp, so there is nothing further to offer.
+    /// </para>
+    /// <para>
+    /// At the very bottom of the range anything drawn in green or blue goes
+    /// black, which is the point but is also disorienting the first time. The
+    /// panic hotkey exists for exactly this.
+    /// </para>
     /// </remarks>
-    public const int MinTemperatureKelvin = 1700;
+    public const int MinTemperatureKelvin = 800;
 
     /// <summary>Coolest colour temperature offered, in kelvin (blue-ish).</summary>
     public const int MaxTemperatureKelvin = 10000;
