@@ -25,6 +25,10 @@
 
   <PropertyGroup Label="Package metadata">
     <Product>Redture</Product>
+
+    <!-- Ends up as Comments in the Windows version resource, and as the package
+         description anywhere this is consumed as a library. -->
+    <Description>Colour temperature and below-minimum brightness for your display, in one control.</Description>
     <Authors>Felipe</Authors>
     <Company>Redture</Company>
     <Copyright>Copyright (c) 2026 Felipe</Copyright>

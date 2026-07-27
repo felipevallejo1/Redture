@@ -113,6 +113,36 @@ set and reports what is unavailable — it does not pretend, and it does not
 refuse to start. `dotnet run --project tools/Redture.Diagnostics` prints exactly
 what the current machine supports.
 
+## Download
+
+Binaries are attached to each [release](https://github.com/felipevallejo1/Redture/releases),
+built by CI from a clean checkout of the tagged commit.
+
+| File | What it is |
+|---|---|
+| `Redture.exe` | Windows, ~94 MB. Download and run. Nothing to install, no .NET needed |
+| `Redture-win-x64.zip` | The same executable, ~40 MB. Worth it on a slow connection |
+| `Redture-linux-x64.tar.gz` | Linux, X11 only. Colour temperature works; dimming does not yet |
+| `SHA256SUMS.txt` | Checksums for all of the above |
+
+### Windows will warn you, and it is right to
+
+The binaries are **not code-signed**, so the first launch shows *"Windows
+protected your PC"*. Signing needs a certificate that costs a few hundred
+dollars a year, which is hard to justify for a project like this.
+
+Click **More info → Run anyway** if you trust it — and it is entirely reasonable
+not to. The alternative is to build it yourself from source, which takes about
+fifteen seconds and is the option this repository is really for.
+
+Before running it either way, check what you downloaded:
+
+```powershell
+Get-FileHash Redture.exe -Algorithm SHA256
+```
+
+and compare against `SHA256SUMS.txt`.
+
 ## Build and run
 
 Requires the [.NET 9 SDK](https://dotnet.microsoft.com/download).

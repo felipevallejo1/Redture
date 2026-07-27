@@ -5,6 +5,15 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>Redture.App</RootNamespace>
     <AssemblyName>Redture</AssemblyName>
+
+    <!--
+      Becomes "File description" in the Windows version resource, which is the
+      text shown in Task Manager's Description column, in the SmartScreen
+      prompt, and in the file's Properties dialog. Left at the default it reads
+      just "Redture", which tells somebody deciding whether to trust an
+      unsigned download precisely nothing.
+    -->
+    <AssemblyTitle>Redture — display colour temperature and brightness</AssemblyTitle>
     <ApplicationIcon>Assets\redture.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>

@@ -1,0 +1,117 @@
+name: Release
+
+# Tag a commit and the binaries build themselves. Uploading zips by hand is how
+# a release ends up built from a working copy nobody can reproduce -- these come
+# from a clean checkout of the exact commit the tag points at, and the checksums
+# are generated alongside them.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            binary: Redture.exe
+          - os: ubuntu-latest
+            rid: linux-x64
+            binary: Redture
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Test
+        run: dotnet test --configuration Release
+
+      # Self-contained, so it runs on a machine with no .NET installed. Single
+      # file, so what people download is the thing they run rather than a folder
+      # of ninety DLLs they have to keep together.
+      - name: Publish
+        shell: bash
+        run: |
+          dotnet publish src/Redture.App/Redture.App.csproj \
+            --configuration Release \
+            --runtime ${{ matrix.rid }} \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:DebugType=none \
+            --output publish/${{ matrix.rid }}
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cd publish/${{ matrix.rid }}
+          # A zip roughly halves the download, which is worth having alongside
+          # the bare binary for anyone on a slow connection.
+          if [ "${{ matrix.rid }}" = "win-x64" ]; then
+            7z a -mx=9 ../../artifacts/Redture-${{ matrix.rid }}.zip "${{ matrix.binary }}"
+            cp "${{ matrix.binary }}" ../../artifacts/Redture.exe
+          else
+            chmod +x "${{ matrix.binary }}"
+            tar -czf ../../artifacts/Redture-${{ matrix.rid }}.tar.gz "${{ matrix.binary }}"
+          fi
+
+      - name: Checksums
+        shell: bash
+        run: |
+          cd artifacts
+          for f in *; do
+            sha256sum "$f" >> "../checksums-${{ matrix.rid }}.txt"
+          done
+          cat "../checksums-${{ matrix.rid }}.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.rid }}
+          path: |
+            artifacts/*
+            checksums-${{ matrix.rid }}.txt
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: downloaded
+
+      - name: Collect
+        run: |
+          mkdir -p release
+          find downloaded -type f -name 'Redture*' -exec cp {} release/ \;
+          cat downloaded/*/checksums-*.txt > release/SHA256SUMS.txt
+          ls -lh release
+          cat release/SHA256SUMS.txt
+
+      # gh is preinstalled on the runners, so no third-party action is trusted
+      # with a token that can write to the repository.
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "Redture ${GITHUB_REF_NAME}" \
+            --notes "See the changelog in the commit history. Windows binaries are unsigned; SmartScreen will warn on first run. Verify against SHA256SUMS.txt." \
+            release/*
