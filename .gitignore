@@ -1,0 +1,33 @@
+# Build output
+bin/
+obj/
+artifacts/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.DotSettings.user
+
+# NuGet
+*.nupkg
+packages/
+
+# Tests
+TestResults/
+*.trx
+coverage*.json
+coverage*.xml
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Local runtime data (should never be committed: it is written to %APPDATA%,
+# but keep the pattern in case someone runs the app from the repo root)
+settings.json.tmp
+logs/

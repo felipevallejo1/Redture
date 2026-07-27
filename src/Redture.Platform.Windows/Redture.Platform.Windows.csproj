@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Windows backend.
+
+    Note the target framework is plain `net9.0`, NOT `net9.0-windows`: every
+    Windows API we need is reached through P/Invoke to user32/gdi32/dxva2,
+    which does not require the Windows-specific TFM. Keeping the neutral TFM
+    lets Redture.App reference this project unconditionally and still compile
+    on Linux and macOS. Windows-only types are marked with
+    [SupportedOSPlatform("windows")] so the platform-compatibility analyzer
+    catches any call made without an OperatingSystem.IsWindows() guard.
+  -->
+  <PropertyGroup>
+    <!-- Required by the LibraryImport source generator, which emits unsafe
+         marshalling stubs. No hand-written unsafe code lives in this project. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Redture.Platform.Abstractions\Redture.Platform.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

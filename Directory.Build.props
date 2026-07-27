@@ -1,0 +1,36 @@
+<Project>
+
+  <!--
+    Shared MSBuild settings for every project in the solution.
+    Keeping these here (instead of duplicating them in each .csproj) means a
+    single place to change the target framework or tighten the compiler.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- The whole codebase is warning-clean; keep it that way. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest</AnalysisLevel>
+
+    <!-- No culture-specific data is needed; saves ~10 MB in published output. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- Deterministic builds so CI artifacts are reproducible. -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Package metadata">
+    <Product>Redture</Product>
+    <Authors>Felipe</Authors>
+    <Company>Redture</Company>
+    <Copyright>Copyright (c) 2026 Felipe</Copyright>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <RepositoryUrl>https://github.com/fulbarium/Redture</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+</Project>

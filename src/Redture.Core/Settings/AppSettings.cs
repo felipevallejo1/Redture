@@ -1,0 +1,100 @@
+namespace Redture.Core.Settings;
+
+/// <summary>
+/// Everything Redture persists between runs. Plain mutable POCO on purpose:
+/// it is bound directly by the view models and serialised as-is to JSON.
+/// </summary>
+/// <remarks>
+/// Schema evolution strategy: new properties may be added freely — the JSON
+/// deserialiser leaves missing members at their default value, so an older
+/// settings file simply picks up the new defaults. <see cref="SchemaVersion"/>
+/// exists for the case where a property changes *meaning* (e.g. a range or unit
+/// change), which needs an explicit migration step before that can happen.
+/// </remarks>
+public sealed class AppSettings
+{
+    /// <summary>Schema version written by this build.</summary>
+    public const int CurrentSchemaVersion = 1;
+
+    // --- Limits ------------------------------------------------------------
+    // Centralised here so the view models, the validator and the tests all
+    // agree on the same numbers.
+
+    /// <summary>Lowest perceived brightness the slider allows (fully dimmed).</summary>
+    public const double MinBrightness = 0d;
+
+    /// <summary>Highest perceived brightness: no dimming at all.</summary>
+    public const double MaxBrightness = 100d;
+
+    /// <summary>Warmest colour temperature offered, in kelvin (deep amber).</summary>
+    public const int MinTemperatureKelvin = 1000;
+
+    /// <summary>Coolest colour temperature offered, in kelvin (blue-ish).</summary>
+    public const int MaxTemperatureKelvin = 10000;
+
+    /// <summary>D65 white point: the identity setting, no tint applied.</summary>
+    public const int NeutralTemperatureKelvin = 6500;
+
+    /// <summary>
+    /// Hard ceiling for the dimming overlay's alpha. Never 1.0: a fully opaque
+    /// black overlay would leave the user with no way to see the screen and
+    /// find the slider again.
+    /// </summary>
+    public const double AbsoluteMaxOverlayOpacity = 0.95d;
+
+    // --- Persisted state ---------------------------------------------------
+
+    /// <summary>Version of the schema this file was written with.</summary>
+    public int SchemaVersion { get; set; } = CurrentSchemaVersion;
+
+    /// <summary>Master switch: when false Redture applies nothing at all.</summary>
+    public bool EffectsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Perceived brightness, 0–100. The upper part of this range will map to
+    /// real backlight brightness and the lower part to the software dimming
+    /// overlay; the split is introduced together with the overlay in stage 1.
+    /// </summary>
+    public double Brightness { get; set; } = MaxBrightness;
+
+    /// <summary>Target colour temperature in kelvin.</summary>
+    public int TemperatureKelvin { get; set; } = NeutralTemperatureKelvin;
+
+    /// <summary>Whether the time-of-day schedule drives the temperature.</summary>
+    public bool AutomationEnabled { get; set; }
+
+    /// <summary>Whether Redture registers itself to start at logon.</summary>
+    public bool StartWithSystem { get; set; }
+
+    /// <summary>User-configurable cap on overlay opacity, clamped to
+    /// <see cref="AbsoluteMaxOverlayOpacity"/>.</summary>
+    public double MaxOverlayOpacity { get; set; } = 0.92d;
+
+    /// <summary>
+    /// Whether the user explicitly opted in to the Windows registry tweak that
+    /// unlocks the full gamma ramp range (see docs/architecture.md, risk R1).
+    /// Never set without a confirmation dialog: it needs admin rights and a
+    /// re-login to take effect.
+    /// </summary>
+    public bool ExtendedGammaRangeOptIn { get; set; }
+
+    /// <summary>
+    /// Clamps every value into its valid range. Called after loading so a
+    /// hand-edited or corrupted-but-parseable file can never push the app into
+    /// an unusable state (a black screen, for instance).
+    /// </summary>
+    public void Normalize()
+    {
+        Brightness = Math.Clamp(Brightness, MinBrightness, MaxBrightness);
+        TemperatureKelvin = Math.Clamp(TemperatureKelvin, MinTemperatureKelvin, MaxTemperatureKelvin);
+        MaxOverlayOpacity = Math.Clamp(MaxOverlayOpacity, 0d, AbsoluteMaxOverlayOpacity);
+
+        if (SchemaVersion is < 1 or > CurrentSchemaVersion)
+        {
+            SchemaVersion = CurrentSchemaVersion;
+        }
+    }
+
+    /// <summary>Shallow copy, used to hand a snapshot to background work.</summary>
+    public AppSettings Clone() => (AppSettings)MemberwiseClone();
+}

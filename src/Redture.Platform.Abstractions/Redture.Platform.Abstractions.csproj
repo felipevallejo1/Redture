@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Contracts between Redture.Core / Redture.App and the per-OS backends.
+    Porting Redture to a new platform means implementing the interfaces here;
+    no other project needs to change.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+</Project>
