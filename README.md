@@ -159,6 +159,23 @@ docs/
 Porting Redture to a new OS means implementing the interfaces in
 `Redture.Platform.Abstractions`. Nothing else changes.
 
+## What has actually been verified
+
+Colour and display code is easy to write and hard to be sure about, so this is
+tracked explicitly rather than assumed.
+
+| Claim | How it was checked |
+|---|---|
+| The gamma ramp reaching the driver is the one the maths produced | Read back through `GetDeviceGammaRamp` and compared entry by entry — all 768 match |
+| The overlay is a pure multiply that preserves black | Screen luminance measured with the overlay on and off; `WDA_EXCLUDEFROMCAPTURE` confirmed by the capture being unchanged |
+| Brightness splits correctly across backlight and overlay | Independent DDC/CI reader confirmed 50 % backlight at slider 65, and overlay alpha 117 at slider 15 |
+| Multi-monitor, hot-plug and negative coordinates | Overlay controller driven with a fabricated three-display topology; the real windows it created were inspected through Win32 |
+| Display-change storms do not cause repeated rebuilds | Three `WM_DISPLAYCHANGE` messages in 200 ms produced exactly one rebuild |
+| The colour model is correct | Cross-checked against an independent derivation of the Planckian locus, agreeing within 0.006 in CIE xy |
+| Sunrise and sunset | Checked against properties of the solar system, plus absolute solar noon for five cities |
+| The X11 backend | Run against a real X server in a container: enumeration, gamma write, and read-back reporting `Matches` |
+| The macOS backend | **Not verified.** No Mac was available. CI runs the diagnostics tool on a macOS runner, which is as close as this gets until someone runs it on real hardware |
+
 ## Design notes
 
 - [Why Avalonia instead of WPF](docs/adr/0001-avalonia-over-wpf.md)

@@ -36,3 +36,22 @@ jobs:
 
       - name: Test
         run: dotnet test --configuration Release --no-build --verbosity normal
+
+      # Runs the platform backend on each OS and prints what it found. This is
+      # the only place the macOS backend is executed at all -- it was written
+      # without a Mac to try it on, so the runner is what turns "compiles" into
+      # "does something". The tool always exits 0: an unsupported platform is a
+      # result to read, not a build failure.
+      - name: Platform diagnostics
+        run: dotnet run --project tools/Redture.Diagnostics --configuration Release --no-build
+
+      # X11 is only reachable on the Linux runner with a virtual server, and
+      # this is what proves the gamma write path end to end there.
+      - name: Platform diagnostics under X11
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libx11-6 libxrandr2 xvfb
+          Xvfb :99 -screen 0 1920x1080x24 +extension RANDR &
+          sleep 3
+          DISPLAY=:99 dotnet run --project tools/Redture.Diagnostics --configuration Release --no-build -- --test-gamma
