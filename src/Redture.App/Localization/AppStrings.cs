@@ -1,4 +1,4 @@
-namespace Redture.App.Localization;
+﻿namespace Redture.App.Localization;
 
 /// <summary>
 /// Every piece of text the interface shows, in one language.
@@ -74,8 +74,7 @@ public sealed class AppStrings
     public required string GammaRangePending { get; init; }
 
     public required string GammaRangeUnlocked { get; init; }
-
-    public required string GammaRangeButton { get; init; }
+    public required string GammaRangeHowTo { get; init; }
 
     // --- Conflict -------------------------------------------------------
     public required string ConflictTitle { get; init; }
@@ -226,7 +225,10 @@ public sealed class AppStrings
             + "can go. Lifting it is a machine-wide change that needs administrator rights and a sign-out.",
         GammaRangePending = "The extended range is set but not yet active. Sign out and back in to apply it.",
         GammaRangeUnlocked = "The extended gamma range is active, so the full warmth of the slider is available.",
-        GammaRangeButton = "Unlock extended range…",
+        GammaRangeHowTo =
+            "Run this in an elevated Command Prompt, then sign out and back in. Redture will not run it for you: "
+            + "an application that elevates itself from a folder you can write to is a way for other software to "
+            + "borrow your administrator approval.",
 
         ConflictTitle = "Colour conflict",
         ConflictNamedFormat =
@@ -337,7 +339,10 @@ public sealed class AppStrings
             + "necesita permisos de administrador y cerrar sesión.",
         GammaRangePending = "El rango extendido quedó configurado pero todavía no está activo. Cerrá sesión y volvé a entrar.",
         GammaRangeUnlocked = "El rango de gamma extendido está activo, así que tenés toda la calidez del slider disponible.",
-        GammaRangeButton = "Desbloquear rango extendido…",
+        GammaRangeHowTo =
+            "Ejecutá esto en un Símbolo del sistema como administrador, después cerrá sesión y volvé a entrar. "
+            + "Redture no lo hace por vos: una aplicación que se auto-eleva desde una carpeta donde vos podés "
+            + "escribir es una forma de que otro software se aproveche de tu aprobación de administrador.",
 
         ConflictTitle = "Conflicto de color",
         ConflictNamedFormat =

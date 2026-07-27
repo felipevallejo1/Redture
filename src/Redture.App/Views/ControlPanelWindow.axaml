@@ -255,9 +255,14 @@
           <StackPanel>
             <TextBlock Classes="section" Text="{Binding Strings.GammaRangeTitle}" />
             <TextBlock Classes="hint" Text="{Binding GammaRangeStatus}" />
-            <Button Content="Unlock extended rangeâ€¦"
-                    Margin="0,10,0,0" Padding="12,5" FontSize="12"
-                    Command="{Binding UnlockGammaRangeCommand}" />
+            <TextBlock Classes="hint" Margin="0,8,0,4" Text="{Binding Strings.GammaRangeHowTo}" />
+
+            <!-- Selectable so it can be read and copied, and never run by
+                 Redture. See IGammaRangeUnlock.UnlockCommand for why. -->
+            <TextBox Text="{Binding GammaRangeCommand, Mode=OneWay}"
+                     IsReadOnly="True" FontSize="10"
+                     FontFamily="Consolas,Menlo,monospace"
+                     TextWrapping="Wrap" />
           </StackPanel>
         </Border>
 

@@ -7,6 +7,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Least privilege for the automatic token. CI only ever needs to read the
+# repository; without this it inherits whatever the repository default happens
+# to be, which is a setting somebody can change later without thinking about
+# this file.
+permissions:
+  contents: read
+
 jobs:
   build:
     name: build (${{ matrix.os }})

@@ -10,9 +10,9 @@ public sealed class NullGammaRangeUnlock : IGammaRangeUnlock
 
     public bool CanUnlock => false;
 
+    public string? UnlockCommand => null;
+
     public void Refresh()
     {
     }
-
-    public bool TryRequestUnlock() => false;
 }

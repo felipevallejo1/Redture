@@ -116,7 +116,11 @@ public sealed class TrayIconService : IDisposable
 
             if (_pauseItem is not null)
             {
-                _pauseItem.IsEnabled = settings.AutomationEnabled;
+                // Hidden rather than greyed out when there is no schedule to
+                // pause. A disabled item with no explanation of why reads as a
+                // broken feature; an absent one reads as a feature that does
+                // not apply right now, which is what this is.
+                _pauseItem.IsVisible = settings.AutomationEnabled;
                 _pauseItem.Header = _automation.ActiveOverride is { } paused
                     ? $"Resume schedule ({paused.Description.ToLowerInvariant()})"
                     : "Pause schedule for an hour";

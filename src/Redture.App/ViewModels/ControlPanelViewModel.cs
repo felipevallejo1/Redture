@@ -410,20 +410,10 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     };
 
     /// <summary>
-    /// Asks Windows to lift the gamma range restriction, which raises a UAC
-    /// prompt. Never invoked automatically.
+    /// The command that lifts the restriction, shown for the user to run in an
+    /// elevated prompt. Redture deliberately does not run it.
     /// </summary>
-    [RelayCommand]
-    private void UnlockGammaRange()
-    {
-        _settingsStore.Current.ExtendedGammaRangeOptIn = true;
-        _settingsStore.RequestSave();
-
-        _gammaRange.TryRequestUnlock();
-
-        OnPropertyChanged(nameof(GammaRangeStatus));
-        OnPropertyChanged(nameof(CanOfferGammaRangeUnlock));
-    }
+    public string GammaRangeCommand => _gammaRange.UnlockCommand ?? string.Empty;
 
     /// <summary>Re-reads the display topology from the OS.</summary>
     [RelayCommand]

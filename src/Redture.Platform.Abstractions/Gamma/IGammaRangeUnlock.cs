@@ -24,13 +24,25 @@ public interface IGammaRangeUnlock
     /// <summary>Whether unlocking is even possible on this platform.</summary>
     bool CanUnlock { get; }
 
+    /// <summary>
+    /// The exact command an administrator would run to apply the change, or
+    /// null where the concept does not apply.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately a command for the user to run rather than something Redture
+    /// does on their behalf.
+    /// <para>
+    /// An application that relaunches itself elevated turns a user-writable
+    /// install directory into a privilege escalation: anything already running
+    /// as the user can replace the executable, and the next elevation prompt —
+    /// which the user approves believing it is this application — runs the
+    /// replacement as administrator. Handing over a command the user can read
+    /// and run themselves removes that primitive, and shows them exactly what
+    /// is about to change.
+    /// </para>
+    /// </remarks>
+    string? UnlockCommand { get; }
+
     /// <summary>Re-reads the state from the system.</summary>
     void Refresh();
-
-    /// <summary>
-    /// Asks the OS to apply the change, elevating if necessary. Returns whether
-    /// the request was successfully started — not whether the user approved it,
-    /// which is only visible on the next <see cref="Refresh"/>.
-    /// </summary>
-    bool TryRequestUnlock();
 }

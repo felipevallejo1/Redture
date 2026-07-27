@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
 using Redture.Platform.Abstractions.Gamma;
@@ -30,7 +29,16 @@ public sealed class WindowsGammaRangeUnlock : IGammaRangeUnlock
     /// <summary>Value that lifts the restriction to the full ramp range.</summary>
     internal const int UnlockedValue = 256;
 
-    /// <summary>Command-line switch handled by the elevated instance.</summary>
+    /// <summary>
+    /// Command-line switch that applies the change, for anyone who would rather
+    /// run this executable from an elevated prompt than type a registry
+    /// command.
+    /// </summary>
+    /// <remarks>
+    /// Safe in a way the old self-elevation was not: the administrator chooses
+    /// which binary to elevate and can see what they are elevating, instead of
+    /// approving a prompt raised by an application pointing at itself.
+    /// </remarks>
     public const string UnlockSwitch = "--unlock-gamma-range";
 
     private readonly ILogger<WindowsGammaRangeUnlock> _logger;
@@ -68,41 +76,22 @@ public sealed class WindowsGammaRangeUnlock : IGammaRangeUnlock
         _logger.LogDebug("Gamma range state: {State} (registry value {Value}).", State, current);
     }
 
-    public bool TryRequestUnlock()
-    {
-        string? executable = Environment.ProcessPath;
-        if (executable is null)
-        {
-            _logger.LogError("Could not determine the executable path; cannot request elevation.");
-            return false;
-        }
-
-        try
-        {
-            // UseShellExecute with the "runas" verb is what raises the UAC
-            // prompt. The elevated instance writes the value and exits.
-            ProcessStartInfo start = new()
-            {
-                FileName = executable,
-                Arguments = UnlockSwitch,
-                UseShellExecute = true,
-                Verb = "runas",
-            };
-
-            using Process? elevated = Process.Start(start);
-            elevated?.WaitForExit(TimeSpan.FromSeconds(30));
-
-            Refresh();
-            return true;
-        }
-        catch (System.ComponentModel.Win32Exception ex)
-        {
-            // Cancelling the UAC prompt lands here, and is a perfectly normal
-            // answer rather than a failure worth alarming anyone about.
-            _logger.LogInformation("The elevation request was declined or failed: {Reason}", ex.Message);
-            return false;
-        }
-    }
+    /// <inheritdoc />
+    /// <remarks>
+    /// A <c>reg add</c> line rather than a call Redture makes itself. Redture
+    /// used to relaunch itself with the <c>runas</c> verb here, and that was a
+    /// privilege escalation waiting to happen: it installs into
+    /// %LOCALAPPDATA%, which the user can write to, so anything already running
+    /// as the user could replace the executable and wait for the next elevation
+    /// prompt. The user would approve it believing it was this application.
+    /// <para>
+    /// Nothing about the feature needed Redture to be the one elevating. The
+    /// user runs one readable command, sees exactly what it changes, and no
+    /// consent-to-elevate primitive exists in the application at all.
+    /// </para>
+    /// </remarks>
+    public string? UnlockCommand =>
+        $"""reg add "HKLM\{RegistryPath}" /v {ValueName} /t REG_DWORD /d {UnlockedValue} /f""";
 
     /// <summary>
     /// Applies the registry change. Only ever called by an already-elevated
