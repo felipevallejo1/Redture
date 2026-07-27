@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Redture.App.Infrastructure;
+using Redture.App.Localization;
 using Redture.App.Services;
 using Redture.Core.Infrastructure;
 using Redture.Core.Scheduling;
@@ -42,6 +43,15 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     /// are reading from.
     /// </summary>
     private bool _suppressPersist;
+
+    /// <summary>
+    /// Every visible string, in the chosen language. Swapping the whole object
+    /// and raising one change notification retranslates the interface in a
+    /// single step; a property per string would need forty notifications and
+    /// would still miss the ones built in code.
+    /// </summary>
+    [ObservableProperty]
+    private AppStrings _strings = AppStrings.English;
 
     [ObservableProperty]
     private bool _effectsEnabled;
@@ -105,6 +115,7 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         // properties would fire the change handlers and schedule a pointless
         // save of values we just read from disk.
         AppSettings settings = settingsStore.Current;
+        _strings = AppStrings.For(settings.Language);
         _effectsEnabled = settings.EffectsEnabled;
         _brightness = settings.Brightness;
         _temperatureKelvin = settings.TemperatureKelvin;
@@ -137,6 +148,14 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     /// <summary>Displays currently attached, refreshed when the panel opens.</summary>
     public ObservableCollection<DisplayInfo> Displays { get; } = [];
 
+    /// <summary>The same displays, positioned for the little map.</summary>
+    public ObservableCollection<DisplayTile> DisplayTiles { get; } = [];
+
+    /// <summary>Height of that map. Bound so the layout maths and the canvas agree.</summary>
+    public double DisplayMapHeight => 120d;
+
+    private const double DisplayMapWidth = 396d;
+
     // --- Slider bounds, surfaced so the view never hardcodes a range ---------
 
     public double MinBrightness => AppSettings.MinBrightness;
@@ -159,9 +178,13 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     /// Only advertises the escape hatch when it was actually registered — the
     /// combination may already belong to another application.
     /// </summary>
-    public string PanicHotkeyHint => _coordinator.PanicHotkeyDescription is { } hotkey
-        ? $"Press {hotkey} at any time to reset brightness and colour to neutral."
-        : "The panic hotkey could not be registered; another app is likely using it.";
+    /// <summary>
+    /// Help text behind the header's question mark. The shortcut is only
+    /// promised when it was actually registered.
+    /// </summary>
+    public string HelpText => _coordinator.PanicHotkeyDescription is not null
+        ? Strings.HelpTooltip
+        : Strings.HelpTooltip[(Strings.HelpTooltip.IndexOf("\n\n", StringComparison.Ordinal) + 2)..];
 
     /// <summary>
     /// Explains which mechanism is doing the dimming, and where the handover
@@ -176,14 +199,18 @@ public sealed partial class ControlPanelViewModel : ObservableObject
 
             if (targets.Count == 0)
             {
-                return "No backlight control detected on this display, so the whole range is dimmed in software.";
+                return Strings.BacklightNone;
             }
 
             string names = string.Join(
                 ", ",
-                targets.Select(target => $"{target.Name} ({DescribeMechanism(target.Mechanism)})"));
+                targets.Select(target => $"{target.Name} ({DescribeMechanismLocalised(target.Mechanism)})"));
 
-            return $"Backlight control: {names}. Above {_coordinator.BacklightSplitPoint:0}% the slider drives the real backlight; below it, the overlay takes over.";
+            return string.Format(
+                CultureInfo.CurrentCulture,
+                Strings.BacklightSummaryFormat,
+                names,
+                _coordinator.BacklightSplitPoint);
         }
     }
 
@@ -199,20 +226,26 @@ public sealed partial class ControlPanelViewModel : ObservableObject
             IReadOnlyList<string> hdrDisplays = _coordinator.DisplaysIgnoringColorTemperature;
             if (hdrDisplays.Count > 0)
             {
-                return $"{string.Join(", ", hdrDisplays)} is in HDR mode. Windows ignores gamma ramps there, so colour temperature has no effect on it. Turning HDR off restores it.";
+                return string.Format(
+                    CultureInfo.CurrentCulture,
+                    Strings.TemperatureHdrFormat,
+                    string.Join(", ", hdrDisplays));
             }
 
             if (!_coordinator.ColorTemperatureSupported)
             {
-                return "No display accepted a colour lookup table, so colour temperature cannot be applied on this machine.";
+                return Strings.TemperatureUnsupported;
             }
 
             if (_coordinator.ColorTemperatureRejected)
             {
-                return "Windows refused this ramp. It limits how far a gamma ramp may deviate from linear, which is what strongly warm settings run into.";
+                return Strings.TemperatureRejected;
             }
 
-            return $"{AppSettings.NeutralTemperatureKelvin} K is the neutral white point: no tint is applied.";
+            return string.Format(
+                CultureInfo.CurrentCulture,
+                Strings.TemperatureNeutralFormat,
+                AppSettings.NeutralTemperatureKelvin);
         }
     }
 
@@ -226,12 +259,9 @@ public sealed partial class ControlPanelViewModel : ObservableObject
 
     public string GammaRangeStatus => _gammaRange.State switch
     {
-        GammaRangeState.UnlockedPendingSignOut =>
-            "The extended range is set but not yet active. Sign out and back in to apply it.",
-        GammaRangeState.Unlocked =>
-            "The extended gamma range is active, so the full warmth of the slider is available.",
-        GammaRangeState.Restricted =>
-            "Windows limits how far a gamma ramp may deviate from linear, which caps how warm any colour tool can go. Lifting it is a machine-wide change that needs administrator rights and a sign-out.",
+        GammaRangeState.UnlockedPendingSignOut => Strings.GammaRangePending,
+        GammaRangeState.Unlocked => Strings.GammaRangeUnlocked,
+        GammaRangeState.Restricted => Strings.GammaRangeRestricted,
         _ => string.Empty,
     };
 
@@ -254,31 +284,38 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         {
             if (!AutomationEnabled)
             {
-                return "The schedule is off; the slider above is in charge.";
+                return Strings.ScheduleDisabled;
             }
 
             if (_automation.ActiveOverride is { } paused)
             {
                 TimeSpan? left = paused.RemainingAt(DateTimeOffset.Now);
+                string label = Translate(paused.Description);
+
                 return left is { } remaining
-                    ? $"{paused.Description} — resuming in {Describe(remaining)}."
-                    : $"{paused.Description} — until you resume it.";
+                    ? string.Format(CultureInfo.CurrentCulture, Strings.OverrideTimedFormat, label, Describe(remaining))
+                    : string.Format(CultureInfo.CurrentCulture, Strings.OverrideIndefiniteFormat, label);
             }
 
             if (_automation.CurrentState is not { } state)
             {
-                return "Waiting for the first evaluation…";
+                return Strings.ScheduleWaiting;
             }
 
             string phase = state.Phase switch
             {
-                SchedulePhase.Day => "Daytime",
-                SchedulePhase.Sunset => "Warming for the evening",
-                SchedulePhase.Night => "Night",
-                _ => "Cooling for the morning",
+                SchedulePhase.Day => Strings.PhaseDay,
+                SchedulePhase.Sunset => Strings.PhaseSunset,
+                SchedulePhase.Night => Strings.PhaseNight,
+                _ => Strings.PhaseSunrise,
             };
 
-            return $"{phase} — {EffectiveTemperatureKelvin} K, next change at {state.NextChangeAt:HH:mm}.";
+            return string.Format(
+                CultureInfo.CurrentCulture,
+                Strings.ScheduleStatusFormat,
+                phase,
+                EffectiveTemperatureKelvin,
+                state.NextChangeAt.ToString("HH:mm", CultureInfo.CurrentCulture));
         }
     }
 
@@ -298,8 +335,8 @@ public sealed partial class ControlPanelViewModel : ObservableObject
             if (_automation.CurrentState is { UsedSolarTimes: false })
             {
                 return _settingsStore.Current.Schedule.Location is null
-                    ? "No location set, so the fixed times below are being used instead of the sun."
-                    : "The sun does not cross the horizon here today, so the fixed times below are being used.";
+                    ? Strings.ScheduleNoLocation
+                    : Strings.SchedulePolarDay;
             }
 
             return null;
@@ -311,16 +348,65 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     public bool IsScheduleOverridden => _automation.ActiveOverride is not null;
 
     /// <summary>Warning text when another colour tool is fighting Redture.</summary>
-    public string? ConflictWarning => _coordinator.ColorConflictWarning;
+    public string? ConflictWarning
+    {
+        get
+        {
+            if (!_coordinator.HasColorConflict)
+            {
+                return null;
+            }
+
+            IReadOnlyList<string> culprits = _coordinator.ConflictingApplications;
+
+            return culprits.Count > 0
+                ? string.Format(CultureInfo.CurrentCulture, Strings.ConflictNamedFormat, string.Join(" + ", culprits))
+                : Strings.ConflictAnonymous;
+        }
+    }
 
     /// <summary>Drives the visibility of the conflict banner.</summary>
-    public bool HasConflict => _coordinator.ColorConflictWarning is not null;
+    public bool HasConflict => _coordinator.HasColorConflict;
+
+    // --- Language ------------------------------------------------------------
+
+    public bool IsEnglish => Strings.LanguageCode == "en";
+
+    public bool IsSpanish => Strings.LanguageCode == "es";
+
+    /// <summary>
+    /// Switches language and retranslates everything, including the strings
+    /// built in code, by raising a change for every computed property.
+    /// </summary>
+    [RelayCommand]
+    private void SetLanguage(string? code)
+    {
+        AppStrings chosen = AppStrings.For(code);
+        if (chosen.LanguageCode == Strings.LanguageCode)
+        {
+            return;
+        }
+
+        Strings = chosen;
+        _settingsStore.Current.Language = chosen.LanguageCode;
+        _settingsStore.RequestSave();
+
+        OnPropertyChanged(nameof(IsEnglish));
+        OnPropertyChanged(nameof(IsSpanish));
+        OnPropertyChanged(nameof(BacklightSummary));
+        OnPropertyChanged(nameof(TemperatureStatus));
+        OnPropertyChanged(nameof(GammaRangeStatus));
+        OnPropertyChanged(nameof(ConflictWarning));
+        OnPropertyChanged(nameof(DisplaySummary));
+        OnPropertyChanged(nameof(HelpText));
+        RefreshScheduleStatus();
+    }
 
     public string DisplaySummary => Displays.Count switch
     {
-        0 => "No displays detected",
-        1 => "1 display detected",
-        var count => $"{count} displays detected",
+        0 => Strings.NoDisplays,
+        1 => Strings.OneDisplay,
+        var count => string.Format(CultureInfo.CurrentCulture, Strings.DisplaysFormat, count),
     };
 
     /// <summary>
@@ -348,6 +434,13 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         foreach (DisplayInfo display in _displayEnumerator.GetDisplays())
         {
             Displays.Add(display);
+        }
+
+        DisplayTiles.Clear();
+
+        foreach (DisplayTile tile in DisplayTile.Layout(Displays, DisplayMapWidth, DisplayMapHeight))
+        {
+            DisplayTiles.Add(tile);
         }
 
         _logger.LogDebug("Control panel refreshed with {Count} display(s).", Displays.Count);
@@ -477,11 +570,36 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     private static TimeOnly? ParseTime(string text) =>
         TimeOnly.TryParse(text, CultureInfo.InvariantCulture, out TimeOnly value) ? value : null;
 
-    private static string Describe(TimeSpan remaining) => remaining switch
+    private string Describe(TimeSpan remaining) => remaining switch
     {
-        { TotalMinutes: < 1 } => "less than a minute",
-        { TotalMinutes: < 60 } => $"{(int)remaining.TotalMinutes} min",
-        _ => $"{(int)remaining.TotalHours} h {remaining.Minutes} min",
+        { TotalMinutes: < 1 } => Strings.LessThanAMinute,
+        { TotalMinutes: < 60 } => string.Format(CultureInfo.CurrentCulture, Strings.MinutesShort, (int)remaining.TotalMinutes),
+        _ => string.Format(CultureInfo.CurrentCulture, Strings.HoursMinutesShort, (int)remaining.TotalHours, remaining.Minutes),
+    };
+
+    /// <summary>
+    /// Maps an override's stored English description onto the current
+    /// language.
+    /// </summary>
+    /// <remarks>
+    /// The description is created by <see cref="AutomationService"/>, which has
+    /// no business knowing what language the interface is in — it may outlive
+    /// several changes of it. Translating at the point of display keeps the
+    /// service free of presentation concerns.
+    /// </remarks>
+    private string Translate(string description) => description switch
+    {
+        "Paused for an hour" => Strings.PausedForAnHour,
+        "Paused until morning" => Strings.PausedUntilMorning,
+        "Cinema mode" => Strings.CinemaModeLabel,
+        _ => description,
+    };
+
+    private string DescribeMechanismLocalised(BrightnessMechanism mechanism) => mechanism switch
+    {
+        BrightnessMechanism.DdcCi => Strings.MechanismDdcCi,
+        BrightnessMechanism.WmiPanel => Strings.MechanismPanel,
+        _ => Strings.MechanismDdcCi,
     };
 
     private void RefreshScheduleStatus()
@@ -536,10 +654,4 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         OnPropertyChanged(nameof(HasConflict));
     }
 
-    private static string DescribeMechanism(BrightnessMechanism mechanism) => mechanism switch
-    {
-        BrightnessMechanism.DdcCi => "DDC/CI",
-        BrightnessMechanism.WmiPanel => "built-in panel",
-        _ => "unavailable",
-    };
 }

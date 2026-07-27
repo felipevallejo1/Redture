@@ -144,11 +144,11 @@ public sealed class DisplayCoordinator : IDisposable
         });
     }
 
-    /// <summary>
-    /// Message describing another application fighting over the colour lookup
-    /// table, or null while nothing has been observed.
-    /// </summary>
-    public string? ColorConflictWarning => _conflicts.Description;
+    /// <summary>Whether another application has been seen overwriting the LUT.</summary>
+    public bool HasColorConflict => _conflicts.HasConflict;
+
+    /// <summary>Names of the applications involved, where any were recognised.</summary>
+    public IReadOnlyList<string> ConflictingApplications => _conflicts.Applications;
 
     /// <summary>
     /// Subscribes to OS notifications and applies the stored state. Must run on

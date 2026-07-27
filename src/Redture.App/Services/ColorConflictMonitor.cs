@@ -58,8 +58,16 @@ public sealed class ColorConflictMonitor : IDisposable
     /// <summary>Whether another application has been seen overwriting the LUT.</summary>
     public bool HasConflict { get; private set; }
 
-    /// <summary>Message for the UI, or null while there is nothing to report.</summary>
-    public string? Description { get; private set; }
+    /// <summary>
+    /// Applications identified as also writing the table, empty when none were
+    /// recognised.
+    /// </summary>
+    /// <remarks>
+    /// Exposed as names rather than as a finished sentence: the sentence has to
+    /// be built in whatever language the interface is currently in, and a
+    /// background monitor has no business knowing what that is.
+    /// </remarks>
+    public IReadOnlyList<string> Applications { get; private set; } = [];
 
     /// <summary>
     /// Tells the monitor whether a non-neutral ramp is currently applied.
@@ -120,10 +128,7 @@ public sealed class ColorConflictMonitor : IDisposable
     {
         IReadOnlyList<string> culprits = _detector.FindRunningColorApplications();
 
-        Description = culprits.Count > 0
-            ? $"{string.Join(" and ", culprits)} is also adjusting your display's colour. Both applications write the same table, so whichever writes last wins. Close one of them."
-            : "Another application is also adjusting your display's colour. Both write the same table, so whichever writes last wins.";
-
+        Applications = culprits;
         HasConflict = true;
 
         _logger.LogWarning(

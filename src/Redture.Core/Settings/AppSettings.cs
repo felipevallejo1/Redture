@@ -70,6 +70,13 @@ public sealed class AppSettings
     public bool EffectsEnabled { get; set; } = true;
 
     /// <summary>
+    /// Interface language, as a two-letter code. Anything unrecognised falls
+    /// back to English rather than failing, so a hand-edited settings file
+    /// cannot leave the app with no text at all.
+    /// </summary>
+    public string Language { get; set; } = "en";
+
+    /// <summary>
     /// Perceived brightness, 0–100. The upper part of this range will map to
     /// real backlight brightness and the lower part to the software dimming
     /// overlay; the split is introduced together with the overlay in stage 1.

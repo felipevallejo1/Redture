@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -74,6 +74,40 @@
       <Setter Property="Foreground" Value="{StaticResource RedtureText}" />
       <Setter Property="CornerRadius" Value="6" />
     </Style>
+
+    <!-- Language segments: radio buttons drawn as a two-part pill. -->
+    <Style Selector="RadioButton.segment">
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="chip" CornerRadius="11" Padding="10,3" Background="Transparent">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              FontSize="11" FontWeight="SemiBold"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Setter Property="Foreground" Value="{StaticResource RedtureTextMuted}" />
+    </Style>
+
+    <Style Selector="RadioButton.segment:checked /template/ Border#chip">
+      <Setter Property="Background" Value="{StaticResource RedtureAccent}" />
+    </Style>
+
+    <Style Selector="RadioButton.segment:checked">
+      <Setter Property="Foreground" Value="#20140C" />
+    </Style>
+
+    <!-- A monitor drawn as a monitor, rather than described in three lines. -->
+    <Style Selector="Border.screen">
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="{StaticResource RedtureBorder}" />
+      <Setter Property="Background" Value="#100C0A" />
+    </Style>
+
+    <Style Selector="Border.screen.primary">
+      <Setter Property="BorderBrush" Value="{StaticResource RedtureAccent}" />
+    </Style>
   </Window.Styles>
 
   <DockPanel LastChildFill="True">
@@ -87,17 +121,43 @@
         </LinearGradientBrush>
       </Border.Background>
 
-      <Grid ColumnDefinitions="Auto,14,*,Auto">
+      <Grid ColumnDefinitions="Auto,14,*,Auto,10,Auto,10,Auto">
         <Image Grid.Column="0" Source="/Assets/redture.ico" Width="34" Height="34"
                VerticalAlignment="Center" />
 
         <StackPanel Grid.Column="2" VerticalAlignment="Center">
           <TextBlock Text="Redture" FontSize="19" FontWeight="Bold" />
-          <TextBlock Classes="hint"
-                     Text="Colour temperature and below-minimum brightness, in one control." />
+          <TextBlock Classes="hint" Text="{Binding Strings.Tagline}" />
         </StackPanel>
 
+        <!-- Language. Two small segments rather than a dropdown: with exactly
+             two options a dropdown hides one of them behind a click. -->
         <Border Grid.Column="3" VerticalAlignment="Center"
+                Background="{StaticResource RedtureSurface}"
+                BorderBrush="{StaticResource RedtureBorder}"
+                BorderThickness="1" CornerRadius="14" Padding="3">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton Classes="segment" Content="EN" GroupName="lang"
+                         IsChecked="{Binding IsEnglish, Mode=OneWay}"
+                         Command="{Binding SetLanguageCommand}" CommandParameter="en" />
+            <RadioButton Classes="segment" Content="ES" GroupName="lang"
+                         IsChecked="{Binding IsSpanish, Mode=OneWay}"
+                         Command="{Binding SetLanguageCommand}" CommandParameter="es" />
+          </StackPanel>
+        </Border>
+
+        <!-- The things that used to sit in a footer nobody reads. -->
+        <Border Grid.Column="5" VerticalAlignment="Center"
+                Width="26" Height="26" CornerRadius="13"
+                Background="{StaticResource RedtureSurface}"
+                BorderBrush="{StaticResource RedtureBorder}" BorderThickness="1"
+                ToolTip.Tip="{Binding HelpText}" ToolTip.ShowDelay="150">
+          <TextBlock Text="?" FontSize="14" FontWeight="SemiBold"
+                     Foreground="{StaticResource RedtureAccent}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+
+        <Border Grid.Column="7" VerticalAlignment="Center"
                 Background="{StaticResource RedtureSurface}"
                 BorderBrush="{StaticResource RedtureBorder}"
                 BorderThickness="1"
@@ -106,17 +166,6 @@
                      Text="{Binding EffectiveTemperatureKelvin, StringFormat='{}{0} K'}" />
         </Border>
       </Grid>
-    </Border>
-
-    <!-- Footer: also full width, and always the last thing read. -->
-    <Border DockPanel.Dock="Bottom" Padding="20,10,20,14"
-            BorderBrush="{StaticResource RedtureBorder}" BorderThickness="0,1,0,0">
-      <StackPanel Spacing="3">
-        <TextBlock Classes="hint" Text="{Binding PanicHotkeyHint}" />
-        <TextBlock Classes="hint"
-                   Text="Closing this window keeps Redture running in the tray. Use the tray menu to exit." />
-        <TextBlock Classes="hint" Opacity="0.6" Margin="0,4,0,0" Text="{Binding VersionLabel}" />
-      </StackPanel>
     </Border>
 
     <!--
@@ -139,7 +188,7 @@
                 BorderBrush="{StaticResource RedtureDanger}"
                 IsVisible="{Binding HasConflict}">
           <StackPanel>
-            <TextBlock Classes="section" Text="Colour conflict" />
+            <TextBlock Classes="section" Text="{Binding Strings.ConflictTitle}" />
             <TextBlock Classes="hint" Text="{Binding ConflictWarning}" />
           </StackPanel>
         </Border>
@@ -148,10 +197,10 @@
         <Border Classes="card">
           <StackPanel>
             <ToggleSwitch IsChecked="{Binding EffectsEnabled}"
-                          OnContent="Corrections enabled"
-                          OffContent="Corrections disabled" />
+                          OnContent="{Binding Strings.CorrectionsOn}"
+                          OffContent="{Binding Strings.CorrectionsOff}" />
             <TextBlock Classes="hint"
-                       Text="Master switch. When off, Redture leaves the display completely untouched." />
+                       Text="{Binding Strings.CorrectionsHint}" />
           </StackPanel>
         </Border>
 
@@ -159,7 +208,7 @@
         <Border Classes="card">
           <StackPanel>
             <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Grid.Column="0" Classes="section" Text="Brightness" />
+              <TextBlock Grid.Column="0" Classes="section" Text="{Binding Strings.Brightness}" />
               <TextBlock Grid.Column="1" Classes="value"
                          Text="{Binding Brightness, StringFormat='{}{0:0} %'}" />
             </Grid>
@@ -170,7 +219,7 @@
             <Border Classes="scale" Background="{StaticResource RedtureBrightnessScale}" />
             <TextBlock Classes="hint" Margin="0,8,0,0" Text="{Binding BacklightSummary}" />
             <TextBlock Classes="hint" Margin="0,6,0,0"
-                       Text="Below the handover the screen is dimmed with a click-through black overlay, which is a pure multiply: black stays black and contrast is preserved." />
+                       Text="{Binding Strings.OverlayHint}" />
           </StackPanel>
         </Border>
 
@@ -178,7 +227,7 @@
         <Border Classes="card">
           <StackPanel>
             <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Grid.Column="0" Classes="section" Text="Colour temperature" />
+              <TextBlock Grid.Column="0" Classes="section" Text="{Binding Strings.ColourTemperature}" />
               <TextBlock Grid.Column="1" Classes="value"
                          Text="{Binding TemperatureKelvin, StringFormat='{}{0} K'}" />
             </Grid>
@@ -189,12 +238,12 @@
                     IsEnabled="{Binding IsTemperatureManual}" />
             <Border Classes="scale" Background="{StaticResource RedtureTemperatureScale}" />
             <Grid ColumnDefinitions="Auto,*,Auto" Margin="14,2,14,0">
-              <TextBlock Grid.Column="0" Classes="hint" Text="red" />
-              <TextBlock Grid.Column="2" Classes="hint" Text="cool" />
+              <TextBlock Grid.Column="0" Classes="hint" Text="{Binding Strings.ScaleWarm}" />
+              <TextBlock Grid.Column="2" Classes="hint" Text="{Binding Strings.ScaleCool}" />
             </Grid>
             <TextBlock Classes="hint" Margin="0,8,0,0" Text="{Binding TemperatureStatus}" />
             <TextBlock Classes="hint" Margin="0,6,0,0"
-                       Text="Applied through the display's colour lookup table, before compositing — so the tint costs nothing to draw and never lifts the black level." />
+                       Text="{Binding Strings.GammaHint}" />
           </StackPanel>
         </Border>
 
@@ -204,9 +253,9 @@
                 BorderBrush="{StaticResource RedtureWarning}"
                 IsVisible="{Binding CanOfferGammaRangeUnlock}">
           <StackPanel>
-            <TextBlock Classes="section" Text="Extended gamma range" />
+            <TextBlock Classes="section" Text="{Binding Strings.GammaRangeTitle}" />
             <TextBlock Classes="hint" Text="{Binding GammaRangeStatus}" />
-            <Button Content="Unlock extended range…"
+            <Button Content="Unlock extended rangeâ€¦"
                     Margin="0,10,0,0" Padding="12,5" FontSize="12"
                     Command="{Binding UnlockGammaRangeCommand}" />
           </StackPanel>
@@ -220,8 +269,8 @@
         <Border Classes="card">
           <StackPanel>
             <ToggleSwitch IsChecked="{Binding AutomationEnabled}"
-                          OnContent="Follow time of day"
-                          OffContent="Manual control only" />
+                          OnContent="{Binding Strings.AutomationOn}"
+                          OffContent="{Binding Strings.AutomationOff}" />
             <TextBlock Classes="hint" Text="{Binding ScheduleStatus}" />
 
             <TextBlock Classes="hint" Margin="0,6,0,0"
@@ -235,7 +284,7 @@
                    on the colour temperature card, and a strip attached to one
                    of them reads as belonging to it alone. -->
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Text="Daytime" VerticalAlignment="Center" FontSize="12" />
+                <TextBlock Grid.Column="0" Text="{Binding Strings.Daytime}" VerticalAlignment="Center" FontSize="12" />
                 <TextBlock Grid.Column="1" Classes="value" FontSize="12"
                            Text="{Binding DayTemperatureKelvin, StringFormat='{}{0} K'}" />
               </Grid>
@@ -245,7 +294,7 @@
                       TickFrequency="500" />
 
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Text="Night" VerticalAlignment="Center" FontSize="12" />
+                <TextBlock Grid.Column="0" Text="{Binding Strings.Night}" VerticalAlignment="Center" FontSize="12" />
                 <TextBlock Grid.Column="1" Classes="value" FontSize="12"
                            Text="{Binding NightTemperatureKelvin, StringFormat='{}{0} K'}" />
               </Grid>
@@ -255,7 +304,7 @@
                       TickFrequency="500" />
 
               <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
-                <TextBlock Grid.Column="0" Text="Transition length" VerticalAlignment="Center" FontSize="12" />
+                <TextBlock Grid.Column="0" Text="{Binding Strings.TransitionLength}" VerticalAlignment="Center" FontSize="12" />
                 <TextBlock Grid.Column="1" Classes="value" FontSize="12"
                            Text="{Binding TransitionMinutes, StringFormat='{}{0} min'}" />
               </Grid>
@@ -263,56 +312,56 @@
                       Value="{Binding TransitionMinutes}"
                       TickFrequency="15" />
               <TextBlock Classes="hint"
-                         Text="The change begins at sunset and sunrise and takes this long. Interpolated in mired rather than kelvin, so it feels evenly paced from start to finish." />
+                         Text="{Binding Strings.TransitionHint}" />
 
               <ToggleSwitch Margin="0,12,0,0"
                             IsChecked="{Binding UseSolarTimes}"
-                            OnContent="Anchor to the sun"
-                            OffContent="Anchor to fixed times" />
+                            OnContent="{Binding Strings.AnchorSun}"
+                            OffContent="{Binding Strings.AnchorClock}" />
 
               <Grid ColumnDefinitions="*,10,*" IsVisible="{Binding UseSolarTimes}">
                 <StackPanel Grid.Column="0">
-                  <TextBlock Classes="hint" Text="Latitude" />
+                  <TextBlock Classes="hint" Text="{Binding Strings.Latitude}" />
                   <TextBox Text="{Binding LatitudeText}" Watermark="-34.6" FontSize="12" />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                  <TextBlock Classes="hint" Text="Longitude" />
+                  <TextBlock Classes="hint" Text="{Binding Strings.Longitude}" />
                   <TextBox Text="{Binding LongitudeText}" Watermark="-58.4" FontSize="12" />
                 </StackPanel>
               </Grid>
 
               <Grid ColumnDefinitions="*,10,*" IsVisible="{Binding !UseSolarTimes}">
                 <StackPanel Grid.Column="0">
-                  <TextBlock Classes="hint" Text="Sunrise" />
+                  <TextBlock Classes="hint" Text="{Binding Strings.Sunrise}" />
                   <TextBox Text="{Binding SunriseText}" Watermark="07:00" FontSize="12" />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                  <TextBlock Classes="hint" Text="Sunset" />
+                  <TextBlock Classes="hint" Text="{Binding Strings.Sunset}" />
                   <TextBox Text="{Binding SunsetText}" Watermark="20:00" FontSize="12" />
                 </StackPanel>
               </Grid>
 
               <TextBlock Classes="hint" Margin="0,6,0,0"
                          IsVisible="{Binding UseSolarTimes}"
-                         Text="Used locally to compute sunrise and sunset. Redture makes no network requests." />
+                         Text="{Binding Strings.LocationPrivacy}" />
 
-              <TextBlock Classes="section" Margin="0,14,0,6" Text="Override" />
+              <TextBlock Classes="section" Margin="0,14,0,6" Text="{Binding Strings.OverrideTitle}" />
               <WrapPanel>
-                <Button Content="Pause 1 hour" Margin="0,0,6,6" Padding="10,4" FontSize="11"
+                <Button Content="{Binding Strings.PauseHour}" Margin="0,0,6,6" Padding="10,4" FontSize="11"
                         IsVisible="{Binding !IsScheduleOverridden}"
                         Command="{Binding PauseForAnHourCommand}" />
-                <Button Content="Until morning" Margin="0,0,6,6" Padding="10,4" FontSize="11"
+                <Button Content="{Binding Strings.PauseUntilMorning}" Margin="0,0,6,6" Padding="10,4" FontSize="11"
                         IsVisible="{Binding !IsScheduleOverridden}"
                         Command="{Binding PauseUntilSunriseCommand}" />
-                <Button Content="Cinema mode" Margin="0,0,6,6" Padding="10,4" FontSize="11"
+                <Button Content="{Binding Strings.CinemaMode}" Margin="0,0,6,6" Padding="10,4" FontSize="11"
                         IsVisible="{Binding !IsScheduleOverridden}"
                         Command="{Binding EnableCinemaModeCommand}" />
-                <Button Content="Resume schedule" Margin="0,0,6,6" Padding="10,4" FontSize="11"
+                <Button Content="{Binding Strings.ResumeSchedule}" Margin="0,0,6,6" Padding="10,4" FontSize="11"
                         IsVisible="{Binding IsScheduleOverridden}"
                         Command="{Binding ResumeScheduleCommand}" />
               </WrapPanel>
               <TextBlock Classes="hint"
-                         Text="Pausing returns the screen to the daytime setting. Brightness keeps working throughout." />
+                         Text="{Binding Strings.OverrideHint}" />
             </StackPanel>
           </StackPanel>
         </Border>
@@ -321,10 +370,10 @@
         <Border Classes="card" IsVisible="{Binding CanStartWithSystem}">
           <StackPanel>
             <ToggleSwitch IsChecked="{Binding StartWithSystem}"
-                          OnContent="Starts with Windows"
-                          OffContent="Does not start with Windows" />
+                          OnContent="{Binding Strings.StartupOn}"
+                          OffContent="{Binding Strings.StartupOff}" />
             <TextBlock Classes="hint"
-                       Text="Registered per user, with no arguments, so a launch at sign-in goes straight to the tray without opening this panel. It appears in Task Manager's startup tab like anything else." />
+                       Text="{Binding Strings.StartupHint}" />
           </StackPanel>
         </Border>
 
@@ -333,34 +382,56 @@
           <StackPanel>
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Grid.Column="0" Classes="section" Text="{Binding DisplaySummary}" />
-              <Button Grid.Column="1" Content="Refresh" Padding="10,3" FontSize="11"
+              <Button Grid.Column="1" Content="{Binding Strings.Refresh}" Padding="10,3" FontSize="11"
                       Command="{Binding RefreshDisplaysCommand}" />
             </Grid>
 
-            <ItemsControl ItemsSource="{Binding Displays}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="displays:DisplayInfo">
-                  <Border Margin="0,4,0,0" Padding="10,8"
-                          CornerRadius="6"
-                          Background="{StaticResource RedtureSurfaceRaised}">
-                    <StackPanel>
-                      <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis" />
-                        <TextBlock Grid.Column="1" Text="primary" FontSize="10" Opacity="0.7"
-                                   IsVisible="{Binding IsPrimary}" VerticalAlignment="Center" />
-                      </Grid>
-                      <TextBlock Classes="hint" Text="{Binding Bounds}" />
-                      <TextBlock Classes="hint" Text="{Binding Id}" />
-                    </StackPanel>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <!--
+              Drawn to scale rather than listed. Where a second monitor sits
+              relative to the first is the question this section exists to
+              answer, and three lines of coordinates answer it slowly.
+            -->
+            <Border Margin="0,6,0,0" CornerRadius="8" Padding="6"
+                    Background="#100C0A"
+                    BorderBrush="{StaticResource RedtureBorder}" BorderThickness="1"
+                    IsVisible="{Binding !!Displays.Count}">
+              <ItemsControl ItemsSource="{Binding DisplayTiles}"
+                            Height="{Binding DisplayMapHeight}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <Canvas />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.Styles>
+                  <Style Selector="ItemsControl > ContentPresenter">
+                    <Setter Property="Canvas.Left" Value="{ReflectionBinding X}" />
+                    <Setter Property="Canvas.Top" Value="{ReflectionBinding Y}" />
+                  </Style>
+                </ItemsControl.Styles>
+
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DisplayTile">
+                    <Border Classes="screen"
+                            Classes.primary="{Binding IsPrimary}"
+                            Width="{Binding Width}" Height="{Binding Height}"
+                            ToolTip.Tip="{Binding DeviceId}">
+                      <StackPanel VerticalAlignment="Center" Margin="4">
+                        <TextBlock Text="{Binding Name}" FontSize="10" FontWeight="SemiBold"
+                                   TextAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Resolution}" FontSize="9"
+                                   Foreground="{StaticResource RedtureTextMuted}"
+                                   TextAlignment="Center" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Border>
 
             <TextBlock Classes="hint" Margin="0,8,0,0"
                        IsVisible="{Binding !Displays.Count}"
-                       Text="No display backend on this platform yet." />
+                       Text="{Binding Strings.NoDisplayBackend}" />
           </StackPanel>
         </Border>
 
