@@ -92,8 +92,8 @@ Built in stages, each one shippable on its own.
 | 1.5 | Real backlight control (DDC/CI + WMI), unified two-segment slider | ✅ done |
 | 2 | Colour temperature via gamma ramp, conflict detection, gamma-range opt-in | ✅ done |
 | 2.5 | HDR detection, so the tint fails loudly instead of silently | ✅ done |
-| 3 | Time-of-day automation, profiles, manual overrides | ⬜ next |
-| 4 | Auto-start, global hotkeys, fullscreen detection, polish | ⬜ |
+| 3 | Time-of-day automation, solar schedule, manual overrides | ✅ done |
+| 4 | Auto-start, global hotkeys, fullscreen detection, polish | ⬜ next |
 | 5 | Linux backend (X11 + wlroots) | ⬜ |
 | 6 | macOS backend, packaging, release | ⬜ |
 

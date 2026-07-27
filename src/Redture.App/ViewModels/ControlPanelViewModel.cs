@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Redture.App.Infrastructure;
 using Redture.App.Services;
 using Redture.Core.Infrastructure;
+using Redture.Core.Scheduling;
 using Redture.Core.Settings;
 using Redture.Platform.Abstractions.Brightness;
 using Redture.Platform.Abstractions.Displays;
@@ -27,6 +29,7 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     private readonly ISettingsStore _settingsStore;
     private readonly IDisplayEnumerator _displayEnumerator;
     private readonly DisplayCoordinator _coordinator;
+    private readonly AutomationService _automation;
     private readonly IGammaRangeUnlock _gammaRange;
     private readonly IAppPaths _paths;
     private readonly ILogger<ControlPanelViewModel> _logger;
@@ -50,10 +53,35 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     [ObservableProperty]
     private bool _automationEnabled;
 
+    [ObservableProperty]
+    private int _dayTemperatureKelvin;
+
+    [ObservableProperty]
+    private int _nightTemperatureKelvin;
+
+    [ObservableProperty]
+    private int _transitionMinutes;
+
+    [ObservableProperty]
+    private bool _useSolarTimes;
+
+    [ObservableProperty]
+    private string _latitudeText = string.Empty;
+
+    [ObservableProperty]
+    private string _longitudeText = string.Empty;
+
+    [ObservableProperty]
+    private string _sunriseText = string.Empty;
+
+    [ObservableProperty]
+    private string _sunsetText = string.Empty;
+
     public ControlPanelViewModel(
         ISettingsStore settingsStore,
         IDisplayEnumerator displayEnumerator,
         DisplayCoordinator coordinator,
+        AutomationService automation,
         IGammaRangeUnlock gammaRange,
         IAppPaths paths,
         ILogger<ControlPanelViewModel> logger)
@@ -61,6 +89,7 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         _settingsStore = settingsStore;
         _displayEnumerator = displayEnumerator;
         _coordinator = coordinator;
+        _automation = automation;
         _gammaRange = gammaRange;
         _paths = paths;
         _logger = logger;
@@ -73,6 +102,18 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         _brightness = settings.Brightness;
         _temperatureKelvin = settings.TemperatureKelvin;
         _automationEnabled = settings.AutomationEnabled;
+
+        ScheduleSettings schedule = settings.Schedule;
+        _dayTemperatureKelvin = schedule.DayTemperatureKelvin;
+        _nightTemperatureKelvin = schedule.NightTemperatureKelvin;
+        _transitionMinutes = schedule.TransitionMinutes;
+        _useSolarTimes = schedule.UseSolarTimes;
+        _latitudeText = schedule.Latitude?.ToString("0.####", CultureInfo.InvariantCulture) ?? string.Empty;
+        _longitudeText = schedule.Longitude?.ToString("0.####", CultureInfo.InvariantCulture) ?? string.Empty;
+        _sunriseText = schedule.ManualSunrise.ToString("HH\\:mm", CultureInfo.InvariantCulture);
+        _sunsetText = schedule.ManualSunset.ToString("HH\\:mm", CultureInfo.InvariantCulture);
+
+        _automation.StateChanged += (_, _) => RefreshScheduleStatus();
 
         // The panic hotkey and the backlight probe both change state behind the
         // UI's back; without this the controls would keep showing something the
@@ -181,6 +222,81 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         _ => string.Empty,
     };
 
+    // --- Schedule ------------------------------------------------------------
+
+    /// <summary>
+    /// Whether the manual temperature slider is in charge. While the schedule
+    /// is driving, the slider is disabled and shows what the schedule chose —
+    /// a control the user can move but that immediately springs back would be
+    /// worse than one that plainly says it is not theirs right now.
+    /// </summary>
+    public bool IsTemperatureManual => !AutomationEnabled;
+
+    /// <summary>Temperature actually on screen, whether manual or scheduled.</summary>
+    public int EffectiveTemperatureKelvin => _coordinator.EffectiveTemperatureKelvin;
+
+    public string ScheduleStatus
+    {
+        get
+        {
+            if (!AutomationEnabled)
+            {
+                return "The schedule is off; the slider above is in charge.";
+            }
+
+            if (_automation.ActiveOverride is { } paused)
+            {
+                TimeSpan? left = paused.RemainingAt(DateTimeOffset.Now);
+                return left is { } remaining
+                    ? $"{paused.Description} — resuming in {Describe(remaining)}."
+                    : $"{paused.Description} — until you resume it.";
+            }
+
+            if (_automation.CurrentState is not { } state)
+            {
+                return "Waiting for the first evaluation…";
+            }
+
+            string phase = state.Phase switch
+            {
+                SchedulePhase.Day => "Daytime",
+                SchedulePhase.Sunset => "Warming for the evening",
+                SchedulePhase.Night => "Night",
+                _ => "Cooling for the morning",
+            };
+
+            return $"{phase} — {EffectiveTemperatureKelvin} K, next change at {state.NextChangeAt:HH:mm}.";
+        }
+    }
+
+    /// <summary>
+    /// Shown when the schedule is following the clock despite being asked to
+    /// follow the sun.
+    /// </summary>
+    public string? ScheduleFallbackWarning
+    {
+        get
+        {
+            if (!AutomationEnabled || !UseSolarTimes)
+            {
+                return null;
+            }
+
+            if (_automation.CurrentState is { UsedSolarTimes: false })
+            {
+                return _settingsStore.Current.Schedule.Location is null
+                    ? "No location set, so the fixed times below are being used instead of the sun."
+                    : "The sun does not cross the horizon here today, so the fixed times below are being used.";
+            }
+
+            return null;
+        }
+    }
+
+    public bool HasScheduleFallbackWarning => ScheduleFallbackWarning is not null;
+
+    public bool IsScheduleOverridden => _automation.ActiveOverride is not null;
+
     /// <summary>Warning text when another colour tool is fighting Redture.</summary>
     public string? ConflictWarning => _coordinator.ColorConflictWarning;
 
@@ -239,7 +355,98 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         OnPropertyChanged(nameof(CanOfferGammaRangeUnlock));
     }
 
-    partial void OnAutomationEnabledChanged(bool value) => Persist(s => s.AutomationEnabled = value);
+    partial void OnAutomationEnabledChanged(bool value)
+    {
+        Persist(s => s.AutomationEnabled = value);
+
+        if (!_suppressPersist)
+        {
+            _automation.OnAutomationToggled();
+        }
+
+        OnPropertyChanged(nameof(IsTemperatureManual));
+        RefreshScheduleStatus();
+    }
+
+    partial void OnDayTemperatureKelvinChanged(int value) => PersistSchedule(s => s.DayTemperatureKelvin = value);
+
+    partial void OnNightTemperatureKelvinChanged(int value) => PersistSchedule(s => s.NightTemperatureKelvin = value);
+
+    partial void OnTransitionMinutesChanged(int value) => PersistSchedule(s => s.TransitionMinutes = value);
+
+    partial void OnUseSolarTimesChanged(bool value) => PersistSchedule(s => s.UseSolarTimes = value);
+
+    partial void OnLatitudeTextChanged(string value) =>
+        PersistSchedule(s => s.Latitude = ParseCoordinate(value));
+
+    partial void OnLongitudeTextChanged(string value) =>
+        PersistSchedule(s => s.Longitude = ParseCoordinate(value));
+
+    partial void OnSunriseTextChanged(string value) =>
+        PersistSchedule(s => s.ManualSunrise = ParseTime(value) ?? s.ManualSunrise);
+
+    partial void OnSunsetTextChanged(string value) =>
+        PersistSchedule(s => s.ManualSunset = ParseTime(value) ?? s.ManualSunset);
+
+    [RelayCommand]
+    private void PauseForAnHour() => _automation.PauseFor(TimeSpan.FromHours(1), "Paused for an hour");
+
+    [RelayCommand]
+    private void PauseUntilSunrise() => _automation.PauseUntilSunrise();
+
+    [RelayCommand]
+    private void EnableCinemaMode() => _automation.PauseIndefinitely("Cinema mode");
+
+    [RelayCommand]
+    private void ResumeSchedule() => _automation.Resume();
+
+    /// <summary>
+    /// Applies a change to the schedule settings and schedules a save. The
+    /// schedule is re-evaluated on the automation loop's next tick, so nothing
+    /// needs pushing at the display from here.
+    /// </summary>
+    private void PersistSchedule(Action<ScheduleSettings> change)
+    {
+        if (_suppressPersist)
+        {
+            return;
+        }
+
+        change(_settingsStore.Current.Schedule);
+        _settingsStore.Current.Schedule.Normalize();
+        _settingsStore.RequestSave();
+
+        RefreshScheduleStatus();
+    }
+
+    /// <summary>
+    /// Parses a typed coordinate, treating anything unparseable as "not set"
+    /// rather than as zero — which is a real place in the Atlantic and would
+    /// silently give someone the wrong sunset.
+    /// </summary>
+    private static double? ParseCoordinate(string text) =>
+        double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
+            ? value
+            : null;
+
+    private static TimeOnly? ParseTime(string text) =>
+        TimeOnly.TryParse(text, CultureInfo.InvariantCulture, out TimeOnly value) ? value : null;
+
+    private static string Describe(TimeSpan remaining) => remaining switch
+    {
+        { TotalMinutes: < 1 } => "less than a minute",
+        { TotalMinutes: < 60 } => $"{(int)remaining.TotalMinutes} min",
+        _ => $"{(int)remaining.TotalHours} h {remaining.Minutes} min",
+    };
+
+    private void RefreshScheduleStatus()
+    {
+        OnPropertyChanged(nameof(ScheduleStatus));
+        OnPropertyChanged(nameof(ScheduleFallbackWarning));
+        OnPropertyChanged(nameof(HasScheduleFallbackWarning));
+        OnPropertyChanged(nameof(IsScheduleOverridden));
+        OnPropertyChanged(nameof(EffectiveTemperatureKelvin));
+    }
 
     /// <summary>
     /// Applies a change to the live settings, schedules a save and pushes the

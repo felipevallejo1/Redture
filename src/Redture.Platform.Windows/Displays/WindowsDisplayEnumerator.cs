@@ -35,6 +35,18 @@ public sealed class WindowsDisplayEnumerator : IDisplayEnumerator
 
     private readonly ILogger<WindowsDisplayEnumerator> _logger;
 
+    /// <summary>
+    /// Description of the last result, used to log only when the answer changes.
+    /// </summary>
+    /// <remarks>
+    /// Enumeration is called from the gamma write path, which can run twenty
+    /// times a second while a transition catches up. Logging every call at
+    /// information level buried everything else in the file — a log nobody can
+    /// read is worse than no log. What is worth recording is the topology
+    /// changing, not the fact that something asked.
+    /// </remarks>
+    private string _lastLoggedSignature = string.Empty;
+
     public WindowsDisplayEnumerator(ILogger<WindowsDisplayEnumerator> logger)
     {
         _logger = logger;
@@ -73,8 +85,24 @@ public sealed class WindowsDisplayEnumerator : IDisplayEnumerator
             }
         }
 
-        _logger.LogInformation("Detected {Count} display(s): {Displays}", displays.Count, string.Join(" | ", displays));
+        LogIfChanged(displays);
         return displays;
+    }
+
+    /// <summary>
+    /// Records the topology the first time it is seen and whenever it changes,
+    /// and says nothing on the many calls in between.
+    /// </summary>
+    private void LogIfChanged(List<DisplayInfo> displays)
+    {
+        string signature = string.Join(" | ", displays);
+        if (signature == _lastLoggedSignature)
+        {
+            return;
+        }
+
+        _lastLoggedSignature = signature;
+        _logger.LogInformation("Detected {Count} display(s): {Displays}", displays.Count, signature);
     }
 
     /// <summary>Turns one attached adapter output into a <see cref="DisplayInfo"/>.</summary>

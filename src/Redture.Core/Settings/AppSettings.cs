@@ -82,6 +82,9 @@ public sealed class AppSettings
     /// <summary>Whether the time-of-day schedule drives the temperature.</summary>
     public bool AutomationEnabled { get; set; }
 
+    /// <summary>Configuration for that schedule.</summary>
+    public Scheduling.ScheduleSettings Schedule { get; set; } = new();
+
     /// <summary>Whether Redture registers itself to start at logon.</summary>
     public bool StartWithSystem { get; set; }
 
@@ -126,8 +129,20 @@ public sealed class AppSettings
         {
             SchemaVersion = CurrentSchemaVersion;
         }
+
+        Schedule ??= new Scheduling.ScheduleSettings();
+        Schedule.Normalize();
     }
 
-    /// <summary>Shallow copy, used to hand a snapshot to background work.</summary>
-    public AppSettings Clone() => (AppSettings)MemberwiseClone();
+    /// <summary>
+    /// Copy used to hand a snapshot to background work. Deep where it needs to
+    /// be: a shared <see cref="Schedule"/> reference would let the UI mutate
+    /// settings mid-serialisation.
+    /// </summary>
+    public AppSettings Clone()
+    {
+        AppSettings copy = (AppSettings)MemberwiseClone();
+        copy.Schedule = Schedule.Clone();
+        return copy;
+    }
 }

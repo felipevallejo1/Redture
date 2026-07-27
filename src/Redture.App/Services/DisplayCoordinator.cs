@@ -55,6 +55,14 @@ public sealed class DisplayCoordinator : IDisposable
     /// </summary>
     private bool _backlightReleased;
 
+    /// <summary>
+    /// Temperature the schedule is asking for, or null when automation is off
+    /// and the manual setting is in charge. Held here rather than written into
+    /// the settings: it changes every few seconds, and overwriting the stored
+    /// value would lose whatever the user chose by hand.
+    /// </summary>
+    private int? _scheduledTemperature;
+
     private bool _started;
     private bool _disposed;
 
@@ -105,6 +113,33 @@ public sealed class DisplayCoordinator : IDisposable
 
     /// <summary>Displays where HDR makes the gamma ramp a no-op.</summary>
     public IReadOnlyList<string> DisplaysIgnoringColorTemperature => _gamma.DisplaysIgnoringGamma;
+
+    /// <summary>Temperature actually on screen, whoever chose it.</summary>
+    public int EffectiveTemperatureKelvin =>
+        _scheduledTemperature ?? _settingsStore.Current.TemperatureKelvin;
+
+    /// <summary>
+    /// Hands the schedule's current target to the display, or null to give the
+    /// manual setting control back.
+    /// </summary>
+    /// <remarks>
+    /// Called from the automation loop's own thread. Marshalled to the UI
+    /// thread because applying it touches the overlay windows, which belong to
+    /// the thread that created them.
+    /// </remarks>
+    public void SetScheduledTemperature(int? kelvin)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_disposed || _scheduledTemperature == kelvin)
+            {
+                return;
+            }
+
+            _scheduledTemperature = kelvin;
+            Apply();
+        });
+    }
 
     /// <summary>
     /// Message describing another application fighting over the colour lookup
@@ -183,11 +218,12 @@ public sealed class DisplayCoordinator : IDisposable
 
         _backlightReleased = false;
 
-        _gamma.Apply(GammaRampBuilder.Build(settings.TemperatureKelvin));
+        int temperature = EffectiveTemperatureKelvin;
+        _gamma.Apply(GammaRampBuilder.Build(temperature));
 
         // Only worth watching for a conflict while Redture is actually asking
         // for a tint: with a neutral ramp there is nothing to be overwritten.
-        _conflicts.SetTintApplied(settings.TemperatureKelvin != AppSettings.NeutralTemperatureKelvin);
+        _conflicts.SetTintApplied(temperature != AppSettings.NeutralTemperatureKelvin);
 
         BrightnessPlan plan = BrightnessMapper.Map(
             settings.Brightness,

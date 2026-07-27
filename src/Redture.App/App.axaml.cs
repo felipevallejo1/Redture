@@ -42,6 +42,7 @@ public sealed partial class App : Application
             // Started before the tray icon so the stored brightness is already
             // on screen by the time the user can interact with anything.
             _services.GetRequiredService<DisplayCoordinator>().Start();
+            _services.GetRequiredService<AutomationService>().Start();
 
             // A log-off or power-off must not look like a crash on the next
             // boot, so the session-end path runs the same teardown the tray's

@@ -38,6 +38,7 @@ internal static class AppServices
 
         services.AddSingleton<ColorConflictMonitor>();
         services.AddSingleton<DisplayCoordinator>();
+        services.AddSingleton<AutomationService>();
         services.AddSingleton<ApplicationLifecycle>();
         services.AddSingleton<ControlPanelPresenter>();
         services.AddSingleton<TrayIconService>();

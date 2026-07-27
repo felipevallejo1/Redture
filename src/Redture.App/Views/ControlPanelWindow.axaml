@@ -120,7 +120,8 @@
                   Maximum="{Binding MaxTemperatureKelvin}"
                   Value="{Binding TemperatureKelvin}"
                   TickFrequency="500"
-                  IsSnapToTickEnabled="False" />
+                  IsSnapToTickEnabled="False"
+                  IsEnabled="{Binding IsTemperatureManual}" />
           <Grid ColumnDefinitions="Auto,*,Auto">
             <TextBlock Grid.Column="0" Classes="hint" Text="warm" />
             <TextBlock Grid.Column="2" Classes="hint" Text="cool" />
@@ -155,8 +156,98 @@
           <ToggleSwitch IsChecked="{Binding AutomationEnabled}"
                         OnContent="Follow time of day"
                         OffContent="Manual control only" />
-          <TextBlock Classes="hint"
-                     Text="Gradual day / sunset / night transitions. Scheduling logic arrives in stage 3." />
+          <TextBlock Classes="hint" Text="{Binding ScheduleStatus}" />
+
+          <TextBlock Classes="hint" Margin="0,6,0,0"
+                     Foreground="#F0A030"
+                     IsVisible="{Binding HasScheduleFallbackWarning}"
+                     Text="{Binding ScheduleFallbackWarning}" />
+
+          <StackPanel IsVisible="{Binding AutomationEnabled}" Margin="0,12,0,0">
+
+            <!-- Endpoints -->
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Text="Daytime" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Classes="value"
+                         Text="{Binding DayTemperatureKelvin, StringFormat='{}{0} K'}" />
+            </Grid>
+            <Slider Minimum="{Binding MinTemperatureKelvin}"
+                    Maximum="{Binding MaxTemperatureKelvin}"
+                    Value="{Binding DayTemperatureKelvin}"
+                    TickFrequency="500" />
+
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Text="Night" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Classes="value"
+                         Text="{Binding NightTemperatureKelvin, StringFormat='{}{0} K'}" />
+            </Grid>
+            <Slider Minimum="{Binding MinTemperatureKelvin}"
+                    Maximum="{Binding MaxTemperatureKelvin}"
+                    Value="{Binding NightTemperatureKelvin}"
+                    TickFrequency="500" />
+
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Text="Transition length" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Classes="value"
+                         Text="{Binding TransitionMinutes, StringFormat='{}{0} min'}" />
+            </Grid>
+            <Slider Minimum="1" Maximum="240"
+                    Value="{Binding TransitionMinutes}"
+                    TickFrequency="15" />
+            <TextBlock Classes="hint"
+                       Text="The change begins at sunset and sunrise and takes this long. Interpolated in mired rather than kelvin, so it feels evenly paced from start to finish." />
+
+            <!-- Anchors -->
+            <ToggleSwitch Margin="0,12,0,0"
+                          IsChecked="{Binding UseSolarTimes}"
+                          OnContent="Anchor to the sun"
+                          OffContent="Anchor to fixed times" />
+
+            <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding UseSolarTimes}">
+              <StackPanel Grid.Column="0">
+                <TextBlock Classes="hint" Text="Latitude" />
+                <TextBox Text="{Binding LatitudeText}" Watermark="-34.6" FontSize="12" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="hint" Text="Longitude" />
+                <TextBox Text="{Binding LongitudeText}" Watermark="-58.4" FontSize="12" />
+              </StackPanel>
+            </Grid>
+
+            <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding !UseSolarTimes}">
+              <StackPanel Grid.Column="0">
+                <TextBlock Classes="hint" Text="Sunrise" />
+                <TextBox Text="{Binding SunriseText}" Watermark="07:00" FontSize="12" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="hint" Text="Sunset" />
+                <TextBox Text="{Binding SunsetText}" Watermark="20:00" FontSize="12" />
+              </StackPanel>
+            </Grid>
+
+            <TextBlock Classes="hint" Margin="0,6,0,0"
+                       IsVisible="{Binding UseSolarTimes}"
+                       Text="Used locally to compute sunrise and sunset. Redture makes no network requests." />
+
+            <!-- Overrides -->
+            <TextBlock Classes="section" Margin="0,14,0,6" Text="Override" />
+            <WrapPanel>
+              <Button Content="Pause 1 hour" Margin="0,0,6,6" Padding="10,4" FontSize="11"
+                      IsVisible="{Binding !IsScheduleOverridden}"
+                      Command="{Binding PauseForAnHourCommand}" />
+              <Button Content="Until morning" Margin="0,0,6,6" Padding="10,4" FontSize="11"
+                      IsVisible="{Binding !IsScheduleOverridden}"
+                      Command="{Binding PauseUntilSunriseCommand}" />
+              <Button Content="Cinema mode" Margin="0,0,6,6" Padding="10,4" FontSize="11"
+                      IsVisible="{Binding !IsScheduleOverridden}"
+                      Command="{Binding EnableCinemaModeCommand}" />
+              <Button Content="Resume schedule" Margin="0,0,6,6" Padding="10,4" FontSize="11"
+                      IsVisible="{Binding IsScheduleOverridden}"
+                      Command="{Binding ResumeScheduleCommand}" />
+            </WrapPanel>
+            <TextBlock Classes="hint"
+                       Text="Pausing returns the screen to the daytime setting. Brightness keeps working throughout." />
+          </StackPanel>
         </StackPanel>
       </Border>
 
