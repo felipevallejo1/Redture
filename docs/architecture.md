@@ -129,7 +129,7 @@ exist specifically to prevent flicker:
 | R8 | Windows resets gamma on UAC / lock / RDP / session switch | Medium | Re-apply on session change with a short delay |
 | R9 | Overlay showing up in recordings and screen shares | Medium | `WDA_EXCLUDEFROMCAPTURE` |
 | R10 | 8-bit banding if dimming were done through the LUT | Medium | Avoided by design: the LUT only carries colour, the overlay only carries dimming |
-| R11 | SmartScreen / AV heuristics on an unsigned binary that registers hotkeys and creates invisible topmost windows | Medium | Reproducible builds published from CI; limitation documented |
+| R11 | SmartScreen / AV heuristics on an unsigned binary that registers hotkeys and creates invisible topmost windows | Medium | **Resolved by not distributing binaries.** Signing costs a few hundred dollars a year; without it, a download that trips SmartScreen asks a stranger to decide whether a screen dimmer is malware, on no evidence either way. Shipping source and a one-command install script removes the question instead of answering it badly |
 | R12 | DDC/CI unsupported or broken depending on monitor, cable or GPU | Low | Probe at startup; on failure the hardware segment of the slider collapses and the full range becomes overlay-driven |
 
 ## 6. Module map

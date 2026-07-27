@@ -113,35 +113,32 @@ set and reports what is unavailable — it does not pretend, and it does not
 refuse to start. `dotnet run --project tools/Redture.Diagnostics` prints exactly
 what the current machine supports.
 
-## Download
+## Install
 
-Binaries are attached to each [release](https://github.com/felipevallejo1/Redture/releases),
-built by CI from a clean checkout of the tagged commit.
+**No prebuilt binaries are published, on purpose.** A self-contained .NET
+executable is unsigned unless you buy a certificate, and an unsigned download
+makes Windows show *"Windows protected your PC"*. Somebody who does not know
+why that appears has every reason to read it as "this might be malware", and
+that is not a judgement anyone should have to make about a screen dimmer.
 
-| File | What it is |
-|---|---|
-| `Redture.exe` | Windows, ~94 MB. Download and run. Nothing to install, no .NET needed |
-| `Redture-win-x64.zip` | The same executable, ~40 MB. Worth it on a slow connection |
-| `Redture-linux-x64.tar.gz` | Linux, X11 only. Colour temperature works; dimming does not yet |
-| `SHA256SUMS.txt` | Checksums for all of the above |
-
-### Windows will warn you, and it is right to
-
-The binaries are **not code-signed**, so the first launch shows *"Windows
-protected your PC"*. Signing needs a certificate that costs a few hundred
-dollars a year, which is hard to justify for a project like this.
-
-Click **More info → Run anyway** if you trust it — and it is entirely reasonable
-not to. The alternative is to build it yourself from source, which takes about
-fifteen seconds and is the option this repository is really for.
-
-Before running it either way, check what you downloaded:
+Building it yourself takes about fifteen seconds, and you can read exactly what
+you are running first:
 
 ```powershell
-Get-FileHash Redture.exe -Algorithm SHA256
+git clone https://github.com/felipevallejo1/Redture.git
+cd Redture
+.\scripts\install.ps1 -Desktop
 ```
 
-and compare against `SHA256SUMS.txt`.
+That publishes a single self-contained executable into
+`%LOCALAPPDATA%\Programs\Redture` and adds shortcuts to the Start menu and the
+desktop. Per user, so no administrator rights; self-contained, so it does not
+matter whether .NET is installed. `.\scripts\install.ps1 -Uninstall` removes it
+again and leaves your settings alone.
+
+Turn on *"start with Windows"* from the installed copy rather than from a build
+output directory — the switch records the path of whatever is running when you
+flip it.
 
 ## Build and run
 
