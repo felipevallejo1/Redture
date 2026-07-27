@@ -1,11 +1,72 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Redture.App.App"
-             RequestedThemeVariant="Default">
+             RequestedThemeVariant="Dark">
 
-  <!-- "Default" follows the OS light/dark preference. -->
+  <!--
+    Dark, and warm rather than neutral. This is a tool for looking at a screen
+    late at night; a bright grey panel would undo the thing it exists to do the
+    moment you opened it. The palette is pulled from the icon: amber over a
+    near-black with a red cast rather than a blue one.
+  -->
+  <Application.Resources>
+    <!--
+      Fluent derives switch knobs, slider thumbs and focus rings from these, so
+      overriding them here retints the stock controls instead of restyling each
+      one by hand. Without this the app is warm everywhere except the parts that
+      actually move, which are stock blue.
+    -->
+    <Color x:Key="SystemAccentColor">#F0873A</Color>
+    <Color x:Key="SystemAccentColorLight1">#F49B58</Color>
+    <Color x:Key="SystemAccentColorLight2">#F7AF76</Color>
+    <Color x:Key="SystemAccentColorLight3">#FAC394</Color>
+    <Color x:Key="SystemAccentColorDark1">#D6742C</Color>
+    <Color x:Key="SystemAccentColorDark2">#B8601F</Color>
+    <Color x:Key="SystemAccentColorDark3">#994C14</Color>
+
+    <Color x:Key="RedtureBackgroundColor">#17110F</Color>
+    <Color x:Key="RedtureAccentColor">#F0873A</Color>
+
+    <SolidColorBrush x:Key="RedtureBackground" Color="#17110F" />
+    <SolidColorBrush x:Key="RedtureSurface" Color="#221A16" />
+    <SolidColorBrush x:Key="RedtureSurfaceRaised" Color="#2C221C" />
+    <SolidColorBrush x:Key="RedtureBorder" Color="#3A2C24" />
+    <SolidColorBrush x:Key="RedtureAccent" Color="#F0873A" />
+    <SolidColorBrush x:Key="RedtureAccentDeep" Color="#E2582A" />
+    <SolidColorBrush x:Key="RedtureText" Color="#F4EAE2" />
+    <SolidColorBrush x:Key="RedtureTextMuted" Color="#A8968B" />
+    <SolidColorBrush x:Key="RedtureWarning" Color="#F0A030" />
+    <SolidColorBrush x:Key="RedtureDanger" Color="#E05252" />
+
+    <!-- The temperature scale, drawn under its slider: deep red at the warm
+         end through neutral to a cool blue, so the control shows what it does. -->
+    <LinearGradientBrush x:Key="RedtureTemperatureScale" StartPoint="0%,0%" EndPoint="100%,0%">
+      <GradientStop Offset="0.00" Color="#FF3B14" />
+      <GradientStop Offset="0.12" Color="#FF6B2B" />
+      <GradientStop Offset="0.32" Color="#FFAE6B" />
+      <GradientStop Offset="0.62" Color="#FFF1E2" />
+      <GradientStop Offset="1.00" Color="#BFD6FF" />
+    </LinearGradientBrush>
+
+    <!-- The brightness scale: black through to full white. -->
+    <LinearGradientBrush x:Key="RedtureBrightnessScale" StartPoint="0%,0%" EndPoint="100%,0%">
+      <GradientStop Offset="0.00" Color="#000000" />
+      <GradientStop Offset="1.00" Color="#F4EAE2" />
+    </LinearGradientBrush>
+  </Application.Resources>
+
   <Application.Styles>
     <FluentTheme />
+
+    <!-- Accent overrides, so sliders and switches pick up the warm colour
+         instead of the stock blue. -->
+    <Style Selector="Slider">
+      <Setter Property="Foreground" Value="{StaticResource RedtureAccent}" />
+    </Style>
+
+    <Style Selector="ToggleSwitch">
+      <Setter Property="Foreground" Value="{StaticResource RedtureText}" />
+    </Style>
   </Application.Styles>
 
 </Application>

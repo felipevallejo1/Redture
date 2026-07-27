@@ -9,17 +9,24 @@
         x:DataType="vm:ControlPanelViewModel"
         Title="Redture"
         Icon="/Assets/redture.ico"
-        Width="440" Height="620"
-        MinWidth="400" MinHeight="480"
+        Width="960" Height="660"
+        MinWidth="420" MinHeight="460"
+        Background="{StaticResource RedtureBackground}"
         WindowStartupLocation="CenterScreen">
 
   <Window.Styles>
     <!-- Card: the repeated container for every control group. -->
     <Style Selector="Border.card">
-      <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundListLowBrush}" />
-      <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Padding" Value="14" />
-      <Setter Property="Margin" Value="0,0,0,12" />
+      <Setter Property="Background" Value="{StaticResource RedtureSurface}" />
+      <Setter Property="BorderBrush" Value="{StaticResource RedtureBorder}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="16" />
+      <Setter Property="Margin" Value="0,0,14,14" />
+    </Style>
+
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource RedtureText}" />
     </Style>
 
     <Style Selector="TextBlock.section">
@@ -29,289 +36,339 @@
     </Style>
 
     <Style Selector="TextBlock.hint">
-      <Setter Property="Opacity" Value="0.6" />
+      <Setter Property="Foreground" Value="{StaticResource RedtureTextMuted}" />
       <Setter Property="FontSize" Value="11" />
       <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="LineHeight" Value="16" />
     </Style>
 
     <Style Selector="TextBlock.value">
       <Setter Property="FontFamily" Value="Consolas,Menlo,monospace" />
+      <Setter Property="Foreground" Value="{StaticResource RedtureAccent}" />
+      <Setter Property="FontSize" Value="14" />
       <Setter Property="HorizontalAlignment" Value="Right" />
-      <Setter Property="MinWidth" Value="64" />
+    </Style>
+
+    <!-- The coloured strip that sits under a slider and shows its range. -->
+    <Style Selector="Border.scale">
+      <Setter Property="Height" Value="4" />
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Margin" Value="14,0,14,2" />
+      <Setter Property="Opacity" Value="0.75" />
+    </Style>
+
+    <Style Selector="Button">
+      <Setter Property="Background" Value="{StaticResource RedtureSurfaceRaised}" />
+      <Setter Property="BorderBrush" Value="{StaticResource RedtureBorder}" />
+      <Setter Property="Foreground" Value="{StaticResource RedtureText}" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <Style Selector="Button:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource RedtureAccentDeep}" />
+    </Style>
+
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{StaticResource RedtureSurfaceRaised}" />
+      <Setter Property="BorderBrush" Value="{StaticResource RedtureBorder}" />
+      <Setter Property="Foreground" Value="{StaticResource RedtureText}" />
+      <Setter Property="CornerRadius" Value="6" />
     </Style>
   </Window.Styles>
 
-  <ScrollViewer>
-    <!-- Capped width: the panel is a narrow control surface, and letting the
-         cards stretch across a resized window makes the sliders unusable. -->
-    <StackPanel Margin="18" MaxWidth="520" HorizontalAlignment="Center">
+  <DockPanel LastChildFill="True">
 
-      <!-- Header -->
-      <StackPanel Margin="0,0,0,14">
-        <TextBlock Text="Redture" FontSize="22" FontWeight="Bold" />
-        <TextBlock Classes="hint" Text="Colour temperature and below-minimum brightness, in one control." />
+    <!-- Header: spans the full width whatever the window is doing. -->
+    <Border DockPanel.Dock="Top" Padding="20,16,20,14">
+      <Border.Background>
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+          <GradientStop Offset="0" Color="#2A1A12" />
+          <GradientStop Offset="1" Color="#17110F" />
+        </LinearGradientBrush>
+      </Border.Background>
+
+      <Grid ColumnDefinitions="Auto,14,*,Auto">
+        <Image Grid.Column="0" Source="/Assets/redture.ico" Width="34" Height="34"
+               VerticalAlignment="Center" />
+
+        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+          <TextBlock Text="Redture" FontSize="19" FontWeight="Bold" />
+          <TextBlock Classes="hint"
+                     Text="Colour temperature and below-minimum brightness, in one control." />
+        </StackPanel>
+
+        <Border Grid.Column="3" VerticalAlignment="Center"
+                Background="{StaticResource RedtureSurface}"
+                BorderBrush="{StaticResource RedtureBorder}"
+                BorderThickness="1"
+                CornerRadius="14" Padding="12,5">
+          <TextBlock Classes="value" FontSize="13"
+                     Text="{Binding EffectiveTemperatureKelvin, StringFormat='{}{0} K'}" />
+        </Border>
+      </Grid>
+    </Border>
+
+    <!-- Footer: also full width, and always the last thing read. -->
+    <Border DockPanel.Dock="Bottom" Padding="20,10,20,14"
+            BorderBrush="{StaticResource RedtureBorder}" BorderThickness="0,1,0,0">
+      <StackPanel Spacing="3">
+        <TextBlock Classes="hint" Text="{Binding PanicHotkeyHint}" />
+        <TextBlock Classes="hint"
+                   Text="Closing this window keeps Redture running in the tray. Use the tray menu to exit." />
+        <TextBlock Classes="hint" Opacity="0.6" Margin="0,4,0,0" Text="{Binding VersionLabel}" />
+      </StackPanel>
+    </Border>
+
+    <!--
+      Two columns that stack when there is no room for two.
+
+      The wrapping happens between the columns rather than between the cards.
+      A WrapPanel full of cards lays them out in rows, so one tall card sets the
+      height of its whole row and leaves a hole beside it; wrapping whole
+      columns instead lets each one pack its own cards tightly, and a narrow
+      window simply puts the second column underneath the first.
+    -->
+    <ScrollViewer Padding="20,16,6,0">
+      <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center">
+
+      <StackPanel Width="440">
+
+        <!-- Conflict, shown only once another tool has been seen overwriting us -->
+        <Border Classes="card"
+                Background="#33E05252"
+                BorderBrush="{StaticResource RedtureDanger}"
+                IsVisible="{Binding HasConflict}">
+          <StackPanel>
+            <TextBlock Classes="section" Text="Colour conflict" />
+            <TextBlock Classes="hint" Text="{Binding ConflictWarning}" />
+          </StackPanel>
+        </Border>
+
+        <!-- Master switch -->
+        <Border Classes="card">
+          <StackPanel>
+            <ToggleSwitch IsChecked="{Binding EffectsEnabled}"
+                          OnContent="Corrections enabled"
+                          OffContent="Corrections disabled" />
+            <TextBlock Classes="hint"
+                       Text="Master switch. When off, Redture leaves the display completely untouched." />
+          </StackPanel>
+        </Border>
+
+        <!-- Brightness -->
+        <Border Classes="card">
+          <StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Classes="section" Text="Brightness" />
+              <TextBlock Grid.Column="1" Classes="value"
+                         Text="{Binding Brightness, StringFormat='{}{0:0} %'}" />
+            </Grid>
+            <Slider Minimum="{Binding MinBrightness}"
+                    Maximum="{Binding MaxBrightness}"
+                    Value="{Binding Brightness}"
+                    TickFrequency="10" />
+            <Border Classes="scale" Background="{StaticResource RedtureBrightnessScale}" />
+            <TextBlock Classes="hint" Margin="0,8,0,0" Text="{Binding BacklightSummary}" />
+            <TextBlock Classes="hint" Margin="0,6,0,0"
+                       Text="Below the handover the screen is dimmed with a click-through black overlay, which is a pure multiply: black stays black and contrast is preserved." />
+          </StackPanel>
+        </Border>
+
+        <!-- Colour temperature -->
+        <Border Classes="card">
+          <StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Classes="section" Text="Colour temperature" />
+              <TextBlock Grid.Column="1" Classes="value"
+                         Text="{Binding TemperatureKelvin, StringFormat='{}{0} K'}" />
+            </Grid>
+            <Slider Minimum="{Binding MinTemperatureKelvin}"
+                    Maximum="{Binding MaxTemperatureKelvin}"
+                    Value="{Binding TemperatureKelvin}"
+                    TickFrequency="500"
+                    IsEnabled="{Binding IsTemperatureManual}" />
+            <Border Classes="scale" Background="{StaticResource RedtureTemperatureScale}" />
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="14,2,14,0">
+              <TextBlock Grid.Column="0" Classes="hint" Text="red" />
+              <TextBlock Grid.Column="2" Classes="hint" Text="cool" />
+            </Grid>
+            <TextBlock Classes="hint" Margin="0,8,0,0" Text="{Binding TemperatureStatus}" />
+            <TextBlock Classes="hint" Margin="0,6,0,0"
+                       Text="Applied through the display's colour lookup table, before compositing — so the tint costs nothing to draw and never lifts the black level." />
+          </StackPanel>
+        </Border>
+
+        <!-- Extended gamma range, offered only after a ramp was refused -->
+        <Border Classes="card"
+                Background="#33F0A030"
+                BorderBrush="{StaticResource RedtureWarning}"
+                IsVisible="{Binding CanOfferGammaRangeUnlock}">
+          <StackPanel>
+            <TextBlock Classes="section" Text="Extended gamma range" />
+            <TextBlock Classes="hint" Text="{Binding GammaRangeStatus}" />
+            <Button Content="Unlock extended range…"
+                    Margin="0,10,0,0" Padding="12,5" FontSize="12"
+                    Command="{Binding UnlockGammaRangeCommand}" />
+          </StackPanel>
+        </Border>
+
       </StackPanel>
 
-      <!-- Stage banner: removed once every effect is wired up. -->
-      <Border Classes="card"
-              Background="#33F0A030"
-              BorderBrush="#80F0A030"
-              BorderThickness="1">
-        <StackPanel>
-          <TextBlock Classes="section" Text="Stage 2 — colour temperature" />
-          <TextBlock Classes="hint"
-                     Text="Both controls are live. Brightness uses real backlight where the hardware allows it and a black overlay past the hardware minimum; colour temperature goes through the display's gamma ramp. Scheduling arrives in stage 3." />
-          <TextBlock Classes="hint" Margin="0,6,0,0" Text="{Binding PanicHotkeyHint}" />
-        </StackPanel>
-      </Border>
+      <StackPanel Width="440">
 
-      <!-- Conflict banner: only appears once another colour tool has actually
-           been observed overwriting our ramp. -->
-      <Border Classes="card"
-              Background="#33E05252"
-              BorderBrush="#80E05252"
-              BorderThickness="1"
-              IsVisible="{Binding HasConflict}">
-        <StackPanel>
-          <TextBlock Classes="section" Text="Colour conflict" />
-          <TextBlock Classes="hint" Text="{Binding ConflictWarning}" />
-        </StackPanel>
-      </Border>
-
-      <!-- Master switch -->
-      <Border Classes="card">
-        <StackPanel>
-          <ToggleSwitch IsChecked="{Binding EffectsEnabled}"
-                        OnContent="Corrections enabled"
-                        OffContent="Corrections disabled" />
-          <TextBlock Classes="hint"
-                     Text="Master switch. When off, Redture leaves the display completely untouched." />
-        </StackPanel>
-      </Border>
-
-      <!-- Brightness -->
-      <Border Classes="card">
-        <StackPanel>
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Classes="section" Text="Brightness" />
-            <TextBlock Grid.Column="1" Classes="value"
-                       Text="{Binding Brightness, StringFormat='{}{0:0} %'}" />
-          </Grid>
-          <Slider Minimum="{Binding MinBrightness}"
-                  Maximum="{Binding MaxBrightness}"
-                  Value="{Binding Brightness}"
-                  TickFrequency="10"
-                  IsSnapToTickEnabled="False" />
-          <TextBlock Classes="hint" Text="{Binding BacklightSummary}" />
-          <TextBlock Classes="hint" Margin="0,6,0,0"
-                     Text="Below the handover the screen is dimmed with a click-through black overlay, which is a pure multiply: black stays black and contrast is preserved." />
-        </StackPanel>
-      </Border>
-
-      <!-- Colour temperature -->
-      <Border Classes="card">
-        <StackPanel>
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Classes="section" Text="Colour temperature" />
-            <TextBlock Grid.Column="1" Classes="value"
-                       Text="{Binding TemperatureKelvin, StringFormat='{}{0} K'}" />
-          </Grid>
-          <Slider Minimum="{Binding MinTemperatureKelvin}"
-                  Maximum="{Binding MaxTemperatureKelvin}"
-                  Value="{Binding TemperatureKelvin}"
-                  TickFrequency="500"
-                  IsSnapToTickEnabled="False"
-                  IsEnabled="{Binding IsTemperatureManual}" />
-          <Grid ColumnDefinitions="Auto,*,Auto">
-            <TextBlock Grid.Column="0" Classes="hint" Text="warm" />
-            <TextBlock Grid.Column="2" Classes="hint" Text="cool" />
-          </Grid>
-          <TextBlock Classes="hint" Margin="0,6,0,0" Text="{Binding TemperatureStatus}" />
-          <TextBlock Classes="hint" Margin="0,6,0,0"
-                     Text="Applied through the display's colour lookup table, before compositing — so the tint costs nothing to draw and never lifts the black level." />
-        </StackPanel>
-      </Border>
-
-      <!-- Extended gamma range: only offered after Windows has actually
-           refused a ramp, never suggested pre-emptively. -->
-      <Border Classes="card"
-              Background="#33F0A030"
-              BorderBrush="#80F0A030"
-              BorderThickness="1"
-              IsVisible="{Binding CanOfferGammaRangeUnlock}">
-        <StackPanel>
-          <TextBlock Classes="section" Text="Extended gamma range" />
-          <TextBlock Classes="hint" Text="{Binding GammaRangeStatus}" />
-          <Button Content="Unlock extended range…"
-                  Margin="0,10,0,0"
-                  Padding="12,5"
-                  FontSize="12"
-                  Command="{Binding UnlockGammaRangeCommand}" />
-        </StackPanel>
-      </Border>
-
-      <!-- Automation -->
-      <Border Classes="card">
-        <StackPanel>
-          <ToggleSwitch IsChecked="{Binding AutomationEnabled}"
-                        OnContent="Follow time of day"
-                        OffContent="Manual control only" />
-          <TextBlock Classes="hint" Text="{Binding ScheduleStatus}" />
-
-          <TextBlock Classes="hint" Margin="0,6,0,0"
-                     Foreground="#F0A030"
-                     IsVisible="{Binding HasScheduleFallbackWarning}"
-                     Text="{Binding ScheduleFallbackWarning}" />
-
-          <StackPanel IsVisible="{Binding AutomationEnabled}" Margin="0,12,0,0">
-
-            <!-- Endpoints -->
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Grid.Column="0" Text="Daytime" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Classes="value"
-                         Text="{Binding DayTemperatureKelvin, StringFormat='{}{0} K'}" />
-            </Grid>
-            <Slider Minimum="{Binding MinTemperatureKelvin}"
-                    Maximum="{Binding MaxTemperatureKelvin}"
-                    Value="{Binding DayTemperatureKelvin}"
-                    TickFrequency="500" />
-
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Grid.Column="0" Text="Night" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Classes="value"
-                         Text="{Binding NightTemperatureKelvin, StringFormat='{}{0} K'}" />
-            </Grid>
-            <Slider Minimum="{Binding MinTemperatureKelvin}"
-                    Maximum="{Binding MaxTemperatureKelvin}"
-                    Value="{Binding NightTemperatureKelvin}"
-                    TickFrequency="500" />
-
-            <Grid ColumnDefinitions="*,Auto">
-              <TextBlock Grid.Column="0" Text="Transition length" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Classes="value"
-                         Text="{Binding TransitionMinutes, StringFormat='{}{0} min'}" />
-            </Grid>
-            <Slider Minimum="1" Maximum="240"
-                    Value="{Binding TransitionMinutes}"
-                    TickFrequency="15" />
-            <TextBlock Classes="hint"
-                       Text="The change begins at sunset and sunrise and takes this long. Interpolated in mired rather than kelvin, so it feels evenly paced from start to finish." />
-
-            <!-- Anchors -->
-            <ToggleSwitch Margin="0,12,0,0"
-                          IsChecked="{Binding UseSolarTimes}"
-                          OnContent="Anchor to the sun"
-                          OffContent="Anchor to fixed times" />
-
-            <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding UseSolarTimes}">
-              <StackPanel Grid.Column="0">
-                <TextBlock Classes="hint" Text="Latitude" />
-                <TextBox Text="{Binding LatitudeText}" Watermark="-34.6" FontSize="12" />
-              </StackPanel>
-              <StackPanel Grid.Column="2">
-                <TextBlock Classes="hint" Text="Longitude" />
-                <TextBox Text="{Binding LongitudeText}" Watermark="-58.4" FontSize="12" />
-              </StackPanel>
-            </Grid>
-
-            <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding !UseSolarTimes}">
-              <StackPanel Grid.Column="0">
-                <TextBlock Classes="hint" Text="Sunrise" />
-                <TextBox Text="{Binding SunriseText}" Watermark="07:00" FontSize="12" />
-              </StackPanel>
-              <StackPanel Grid.Column="2">
-                <TextBlock Classes="hint" Text="Sunset" />
-                <TextBox Text="{Binding SunsetText}" Watermark="20:00" FontSize="12" />
-              </StackPanel>
-            </Grid>
+        <!-- Automation -->
+        <Border Classes="card">
+          <StackPanel>
+            <ToggleSwitch IsChecked="{Binding AutomationEnabled}"
+                          OnContent="Follow time of day"
+                          OffContent="Manual control only" />
+            <TextBlock Classes="hint" Text="{Binding ScheduleStatus}" />
 
             <TextBlock Classes="hint" Margin="0,6,0,0"
-                       IsVisible="{Binding UseSolarTimes}"
-                       Text="Used locally to compute sunrise and sunset. Redture makes no network requests." />
+                       Foreground="{StaticResource RedtureWarning}"
+                       IsVisible="{Binding HasScheduleFallbackWarning}"
+                       Text="{Binding ScheduleFallbackWarning}" />
 
-            <!-- Overrides -->
-            <TextBlock Classes="section" Margin="0,14,0,6" Text="Override" />
-            <WrapPanel>
-              <Button Content="Pause 1 hour" Margin="0,0,6,6" Padding="10,4" FontSize="11"
-                      IsVisible="{Binding !IsScheduleOverridden}"
-                      Command="{Binding PauseForAnHourCommand}" />
-              <Button Content="Until morning" Margin="0,0,6,6" Padding="10,4" FontSize="11"
-                      IsVisible="{Binding !IsScheduleOverridden}"
-                      Command="{Binding PauseUntilSunriseCommand}" />
-              <Button Content="Cinema mode" Margin="0,0,6,6" Padding="10,4" FontSize="11"
-                      IsVisible="{Binding !IsScheduleOverridden}"
-                      Command="{Binding EnableCinemaModeCommand}" />
-              <Button Content="Resume schedule" Margin="0,0,6,6" Padding="10,4" FontSize="11"
-                      IsVisible="{Binding IsScheduleOverridden}"
-                      Command="{Binding ResumeScheduleCommand}" />
-            </WrapPanel>
-            <TextBlock Classes="hint"
-                       Text="Pausing returns the screen to the daytime setting. Brightness keeps working throughout." />
+            <StackPanel IsVisible="{Binding AutomationEnabled}" Margin="0,12,0,0">
+
+              <!-- No scale strip here. These two sliders share the range shown
+                   on the colour temperature card, and a strip attached to one
+                   of them reads as belonging to it alone. -->
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="Daytime" VerticalAlignment="Center" FontSize="12" />
+                <TextBlock Grid.Column="1" Classes="value" FontSize="12"
+                           Text="{Binding DayTemperatureKelvin, StringFormat='{}{0} K'}" />
+              </Grid>
+              <Slider Minimum="{Binding MinTemperatureKelvin}"
+                      Maximum="{Binding MaxTemperatureKelvin}"
+                      Value="{Binding DayTemperatureKelvin}"
+                      TickFrequency="500" />
+
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="Night" VerticalAlignment="Center" FontSize="12" />
+                <TextBlock Grid.Column="1" Classes="value" FontSize="12"
+                           Text="{Binding NightTemperatureKelvin, StringFormat='{}{0} K'}" />
+              </Grid>
+              <Slider Minimum="{Binding MinTemperatureKelvin}"
+                      Maximum="{Binding MaxTemperatureKelvin}"
+                      Value="{Binding NightTemperatureKelvin}"
+                      TickFrequency="500" />
+
+              <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                <TextBlock Grid.Column="0" Text="Transition length" VerticalAlignment="Center" FontSize="12" />
+                <TextBlock Grid.Column="1" Classes="value" FontSize="12"
+                           Text="{Binding TransitionMinutes, StringFormat='{}{0} min'}" />
+              </Grid>
+              <Slider Minimum="1" Maximum="240"
+                      Value="{Binding TransitionMinutes}"
+                      TickFrequency="15" />
+              <TextBlock Classes="hint"
+                         Text="The change begins at sunset and sunrise and takes this long. Interpolated in mired rather than kelvin, so it feels evenly paced from start to finish." />
+
+              <ToggleSwitch Margin="0,12,0,0"
+                            IsChecked="{Binding UseSolarTimes}"
+                            OnContent="Anchor to the sun"
+                            OffContent="Anchor to fixed times" />
+
+              <Grid ColumnDefinitions="*,10,*" IsVisible="{Binding UseSolarTimes}">
+                <StackPanel Grid.Column="0">
+                  <TextBlock Classes="hint" Text="Latitude" />
+                  <TextBox Text="{Binding LatitudeText}" Watermark="-34.6" FontSize="12" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="hint" Text="Longitude" />
+                  <TextBox Text="{Binding LongitudeText}" Watermark="-58.4" FontSize="12" />
+                </StackPanel>
+              </Grid>
+
+              <Grid ColumnDefinitions="*,10,*" IsVisible="{Binding !UseSolarTimes}">
+                <StackPanel Grid.Column="0">
+                  <TextBlock Classes="hint" Text="Sunrise" />
+                  <TextBox Text="{Binding SunriseText}" Watermark="07:00" FontSize="12" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="hint" Text="Sunset" />
+                  <TextBox Text="{Binding SunsetText}" Watermark="20:00" FontSize="12" />
+                </StackPanel>
+              </Grid>
+
+              <TextBlock Classes="hint" Margin="0,6,0,0"
+                         IsVisible="{Binding UseSolarTimes}"
+                         Text="Used locally to compute sunrise and sunset. Redture makes no network requests." />
+
+              <TextBlock Classes="section" Margin="0,14,0,6" Text="Override" />
+              <WrapPanel>
+                <Button Content="Pause 1 hour" Margin="0,0,6,6" Padding="10,4" FontSize="11"
+                        IsVisible="{Binding !IsScheduleOverridden}"
+                        Command="{Binding PauseForAnHourCommand}" />
+                <Button Content="Until morning" Margin="0,0,6,6" Padding="10,4" FontSize="11"
+                        IsVisible="{Binding !IsScheduleOverridden}"
+                        Command="{Binding PauseUntilSunriseCommand}" />
+                <Button Content="Cinema mode" Margin="0,0,6,6" Padding="10,4" FontSize="11"
+                        IsVisible="{Binding !IsScheduleOverridden}"
+                        Command="{Binding EnableCinemaModeCommand}" />
+                <Button Content="Resume schedule" Margin="0,0,6,6" Padding="10,4" FontSize="11"
+                        IsVisible="{Binding IsScheduleOverridden}"
+                        Command="{Binding ResumeScheduleCommand}" />
+              </WrapPanel>
+              <TextBlock Classes="hint"
+                         Text="Pausing returns the screen to the daytime setting. Brightness keeps working throughout." />
+            </StackPanel>
           </StackPanel>
-        </StackPanel>
-      </Border>
+        </Border>
 
-      <!-- Startup -->
-      <Border Classes="card" IsVisible="{Binding CanStartWithSystem}">
-        <StackPanel>
-          <ToggleSwitch IsChecked="{Binding StartWithSystem}"
-                        OnContent="Starts with Windows"
-                        OffContent="Does not start with Windows" />
-          <TextBlock Classes="hint"
-                     Text="Registered per user, with no arguments, so a launch at sign-in goes straight to the tray without opening this panel. It appears in Task Manager's startup tab like anything else." />
-        </StackPanel>
-      </Border>
+        <!-- Startup -->
+        <Border Classes="card" IsVisible="{Binding CanStartWithSystem}">
+          <StackPanel>
+            <ToggleSwitch IsChecked="{Binding StartWithSystem}"
+                          OnContent="Starts with Windows"
+                          OffContent="Does not start with Windows" />
+            <TextBlock Classes="hint"
+                       Text="Registered per user, with no arguments, so a launch at sign-in goes straight to the tray without opening this panel. It appears in Task Manager's startup tab like anything else." />
+          </StackPanel>
+        </Border>
 
-      <!-- Detected displays -->
-      <Border Classes="card">
-        <StackPanel>
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Classes="section" Text="{Binding DisplaySummary}" />
-            <Button Grid.Column="1"
-                    Content="Refresh"
-                    Padding="10,3"
-                    FontSize="11"
-                    Command="{Binding RefreshDisplaysCommand}" />
-          </Grid>
+        <!-- Detected displays -->
+        <Border Classes="card">
+          <StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Classes="section" Text="{Binding DisplaySummary}" />
+              <Button Grid.Column="1" Content="Refresh" Padding="10,3" FontSize="11"
+                      Command="{Binding RefreshDisplaysCommand}" />
+            </Grid>
 
-          <ItemsControl ItemsSource="{Binding Displays}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="displays:DisplayInfo">
-                <Border Margin="0,4,0,0" Padding="10,8"
-                        CornerRadius="6"
-                        Background="{DynamicResource SystemControlBackgroundBaseLowBrush}">
-                  <StackPanel>
-                    <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="1" Text="primary" FontSize="10" Opacity="0.7"
-                                 IsVisible="{Binding IsPrimary}" VerticalAlignment="Center" />
-                    </Grid>
-                    <TextBlock FontSize="11" Opacity="0.65"
-                               Text="{Binding Bounds}" />
-                    <TextBlock FontSize="11" Opacity="0.65"
-                               Text="{Binding Id}" />
-                  </StackPanel>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+            <ItemsControl ItemsSource="{Binding Displays}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="displays:DisplayInfo">
+                  <Border Margin="0,4,0,0" Padding="10,8"
+                          CornerRadius="6"
+                          Background="{StaticResource RedtureSurfaceRaised}">
+                    <StackPanel>
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="1" Text="primary" FontSize="10" Opacity="0.7"
+                                   IsVisible="{Binding IsPrimary}" VerticalAlignment="Center" />
+                      </Grid>
+                      <TextBlock Classes="hint" Text="{Binding Bounds}" />
+                      <TextBlock Classes="hint" Text="{Binding Id}" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
-          <TextBlock Classes="hint" Margin="0,8,0,0"
-                     IsVisible="{Binding !Displays.Count}"
-                     Text="No display backend on this platform yet — Linux lands in stage 5, macOS in stage 6." />
-        </StackPanel>
-      </Border>
+            <TextBlock Classes="hint" Margin="0,8,0,0"
+                       IsVisible="{Binding !Displays.Count}"
+                       Text="No display backend on this platform yet." />
+          </StackPanel>
+        </Border>
 
-      <!-- Footer -->
-      <StackPanel Margin="2,4,0,0" Spacing="2">
-        <TextBlock Classes="hint" Text="{Binding VersionLabel}" />
-        <TextBlock Classes="hint" Text="{Binding SettingsPath, StringFormat='Settings: {0}'}" />
-        <TextBlock Classes="hint" Text="{Binding LogPath, StringFormat='Logs: {0}'}" />
-        <TextBlock Classes="hint" Margin="0,6,0,0"
-                   Text="Closing this window keeps Redture running in the tray. Use the tray menu to exit." />
       </StackPanel>
 
-    </StackPanel>
-  </ScrollViewer>
+      </WrapPanel>
+    </ScrollViewer>
+
+  </DockPanel>
 
 </Window>
