@@ -10,10 +10,6 @@ namespace Redture.Core.Infrastructure;
 /// process that set it: if Redture is killed while a warm ramp is applied, the
 /// screen stays orange with nothing on screen to explain why. The sentinel file
 /// lets the next launch notice the crash and force the ramp back to linear.
-/// <para>
-/// Stage 0 only records the fact; the reset itself lands in stage 2 together
-/// with the gamma controller.
-/// </para>
 /// </remarks>
 public sealed class CleanShutdownSentinel
 {

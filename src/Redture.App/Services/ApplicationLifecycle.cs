@@ -11,11 +11,10 @@ namespace Redture.App.Services;
 /// Owns the graceful shutdown sequence.
 /// </summary>
 /// <remarks>
-/// Centralised because the order matters and will matter more with every stage:
-/// pending settings must be flushed, the display state restored (gamma back to
-/// linear, overlays torn down — stages 1 and 2), and only then may the process
-/// exit. Anything that skips this path is treated as a crash by
-/// <see cref="CleanShutdownSentinel"/>.
+/// Centralised because the order matters: pending settings must be flushed, the
+/// display state restored — gamma back to linear, overlays torn down, backlight
+/// handed back — and only then may the process exit. Anything that skips this
+/// path is treated as a crash by <see cref="CleanShutdownSentinel"/>.
 /// </remarks>
 public sealed class ApplicationLifecycle
 {

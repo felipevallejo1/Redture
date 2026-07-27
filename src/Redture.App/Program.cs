@@ -118,7 +118,8 @@ internal static class Program
     /// <summary>
     /// Catches what would otherwise be silent deaths. A tray app has no console
     /// and often no visible window, so an unlogged crash is invisible to the
-    /// user — and, once stage 2 lands, leaves a tinted screen behind.
+    /// user — and leaves a tinted screen behind, since the gamma ramp outlives
+    /// the process that set it.
     /// </summary>
     private static void InstallCrashHandlers()
     {

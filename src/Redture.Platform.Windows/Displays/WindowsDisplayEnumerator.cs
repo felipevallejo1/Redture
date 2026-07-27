@@ -18,9 +18,10 @@ namespace Redture.Platform.Windows.Displays;
 /// the handle the gamma stage needs to open a device context per display.
 /// </para>
 /// <para>
-/// Sizes and positions are physical pixels, not DIPs. The overlay windows added
-/// in stage 1 must convert using <see cref="DisplayInfo.ScaleFactor"/>, since
-/// Avalonia positions windows in device-independent units.
+/// Sizes and positions are physical pixels, not DIPs. That suits the overlay
+/// windows, which are raw HWNDs and take physical coordinates, but anything
+/// positioned through Avalonia must convert using
+/// <see cref="DisplayInfo.ScaleFactor"/> first.
 /// </para>
 /// </remarks>
 [SupportedOSPlatform("windows")]

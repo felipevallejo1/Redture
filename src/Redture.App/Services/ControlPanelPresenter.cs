@@ -39,8 +39,9 @@ public sealed class ControlPanelPresenter
 
         ControlPanelWindow window = EnsureWindow();
 
-        // Refresh on open instead of polling: display topology can change while
-        // the panel is hidden, and nothing is watching for it yet in stage 0.
+        // Refresh on open. The coordinator already reacts to topology changes,
+        // but the panel spends most of its life hidden and its list can be
+        // arbitrarily old by the time anyone looks at it.
         (window.DataContext as ControlPanelViewModel)?.RefreshDisplaysCommand.Execute(null);
 
         if (!window.IsVisible)
