@@ -12,6 +12,7 @@ using Redture.Platform.Abstractions.Overlay;
 using Redture.Platform.Abstractions.Startup;
 using Redture.Platform.Abstractions.SystemEvents;
 using Redture.Platform.Linux;
+using Redture.Platform.MacOS;
 using Redture.Platform.Windows;
 using Serilog;
 
@@ -77,6 +78,10 @@ internal static class AppServices
             // the null backends registered below, so the app runs with a
             // smaller feature set rather than not running.
             services.AddLinuxPlatform();
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            services.AddMacOsPlatform();
         }
 
         // Fallbacks for everything a platform module did not provide. TryAdd, so

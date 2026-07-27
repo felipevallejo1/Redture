@@ -15,6 +15,7 @@
     <ProjectReference Include="..\..\src\Redture.Platform.Abstractions\Redture.Platform.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Redture.Platform.Windows\Redture.Platform.Windows.csproj" />
     <ProjectReference Include="..\..\src\Redture.Platform.Linux\Redture.Platform.Linux.csproj" />
+    <ProjectReference Include="..\..\src\Redture.Platform.MacOS\Redture.Platform.MacOS.csproj" />
   </ItemGroup>
 
 </Project>

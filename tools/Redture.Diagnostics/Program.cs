@@ -7,6 +7,7 @@ using Redture.Platform.Abstractions.Brightness;
 using Redture.Platform.Abstractions.Displays;
 using Redture.Platform.Abstractions.Gamma;
 using Redture.Platform.Linux;
+using Redture.Platform.MacOS;
 using Redture.Platform.Windows;
 
 namespace Redture.Diagnostics;
@@ -64,6 +65,10 @@ internal static class Program
         else if (OperatingSystem.IsLinux())
         {
             services.AddLinuxPlatform();
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            services.AddMacOsPlatform();
         }
 
         services.TryAddSingleton<IDisplayEnumerator, UnsupportedDisplayEnumerator>();

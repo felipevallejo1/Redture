@@ -96,7 +96,8 @@ Built in stages, each one shippable on its own.
 | 4 | Auto-start, fullscreen detection, tray polish | ✅ done |
 | 5 | Linux: X11 display enumeration and colour temperature | ✅ done |
 | 5.5 | Linux dimming overlay | ⬜ |
-| 6 | macOS backend, packaging, release | ⬜ next |
+| 6 | macOS colour temperature (written, unverified — needs a Mac) | ⚠️ |
+| 7 | Packaging and release | ⬜ next |
 
 ## Platform support
 
@@ -105,7 +106,7 @@ Built in stages, each one shippable on its own.
 | Windows 10/11 | ✅ `SetDeviceGammaRamp` | ✅ layered click-through window | ✅ DDC/CI + WMI | Primary target. Gamma is ignored while HDR is on, and Redture says so |
 | Linux — X11 | ✅ `XRRSetCrtcGamma` | ⬜ not yet | ⬜ not yet | Verified against a real X server. Ramp size is read per CRTC rather than assumed |
 | Linux — Wayland | ❌ | ❌ | ⬜ | No standard protocol exists for setting a colour lookup table. `wlr-gamma-control` is a wlroots extension, so it would cover Sway and Hyprland but not GNOME or KDE |
-| macOS | ⬜ | ⬜ | ⬜ | Stage 6 |
+| macOS | ⚠️ `CGSetDisplayTransferByTable` | ⬜ not yet | ⬜ not yet | **Written but never executed** — no Mac was available, and macOS cannot be containerised the way Linux was. Every failure path degrades to "unsupported" rather than throwing |
 
 On a platform where something is missing, Redture runs with a smaller feature
 set and reports what is unavailable — it does not pretend, and it does not
@@ -144,6 +145,7 @@ src/
   Redture.Platform.Abstractions   Contracts between Core/App and the OS backends.
   Redture.Platform.Windows        Windows backend (user32, gdi32, dxva2, …).
   Redture.Platform.Linux          Linux backend (libX11, libXrandr).
+  Redture.Platform.MacOS          macOS backend (Core Graphics). Unverified.
   Redture.App                     Avalonia UI: tray icon, control panel, DI root.
 tools/
   Redture.Diagnostics             Prints what this machine actually supports.
