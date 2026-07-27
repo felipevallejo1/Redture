@@ -49,6 +49,12 @@ The two run at different stages of the display pipeline — the LUT in the GPU's
 scanout, the overlay in the desktop compositor — which is why they combine
 without artefacts.
 
+And because nobody should have to care which subsystem is responsible, the two
+brightness mechanisms sit behind **one** slider: the upper part drives the real
+backlight, and when that bottoms out the overlay picks up seamlessly. On first
+run Redture adopts whatever level the display already had rather than
+overwriting it, and it restores that level when you quit.
+
 ## Status
 
 Built in stages, each one shippable on its own.
@@ -57,8 +63,8 @@ Built in stages, each one shippable on its own.
 |---|---|---|
 | 0 | Scaffolding: tray, DI, logging, settings, display enumeration, crash detection | ✅ done |
 | 1 | Dimming overlay (Windows), multi-monitor, capture exclusion, panic hotkey | ✅ done |
-| 1.5 | Real backlight control, unified two-segment brightness slider | ⬜ next |
-| 2 | Colour temperature via gamma ramp, HDR detection, conflict detection | ⬜ |
+| 1.5 | Real backlight control (DDC/CI + WMI), unified two-segment slider | ✅ done |
+| 2 | Colour temperature via gamma ramp, HDR detection, conflict detection | ⬜ next |
 | 3 | Time-of-day automation, profiles, manual overrides | ⬜ |
 | 4 | Auto-start, global hotkeys, fullscreen detection, polish | ⬜ |
 | 5 | Linux backend (X11 + wlroots) | ⬜ |

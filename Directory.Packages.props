@@ -26,6 +26,10 @@
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(MicrosoftExtensionsVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(MicrosoftExtensionsVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(MicrosoftExtensionsVersion)" />
+    <!-- WMI, used only for laptop panel backlight control. Windows-only at
+         runtime; the package itself restores everywhere, which keeps the Linux
+         and macOS CI legs green. -->
+    <PackageVersion Include="System.Management" Version="$(MicrosoftExtensionsVersion)" />
     <PackageVersion Include="Serilog" Version="4.4.0" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="9.0.2" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />

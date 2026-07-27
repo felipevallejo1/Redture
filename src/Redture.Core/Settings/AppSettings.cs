@@ -71,6 +71,20 @@ public sealed class AppSettings
     public double MaxOverlayOpacity { get; set; } = 0.92d;
 
     /// <summary>
+    /// Whether Redture has already adopted the display's own backlight level
+    /// into <see cref="Brightness"/>.
+    /// </summary>
+    /// <remarks>
+    /// On the very first run where backlight control is found, Redture reads
+    /// the level the user already had and moves its slider to match, instead of
+    /// pushing the monitor to full brightness because that happens to be the
+    /// default. It only ever does this once — after that the slider is
+    /// authoritative and adopting again would silently discard the user's
+    /// setting on every launch.
+    /// </remarks>
+    public bool HardwareBrightnessAdopted { get; set; }
+
+    /// <summary>
     /// Whether the user explicitly opted in to the Windows registry tweak that
     /// unlocks the full gamma ramp range (see docs/architecture.md, risk R1).
     /// Never set without a confirmation dialog: it needs admin rights and a

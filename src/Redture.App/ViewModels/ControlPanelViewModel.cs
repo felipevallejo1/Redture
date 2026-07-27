@@ -6,6 +6,7 @@ using Redture.App.Infrastructure;
 using Redture.App.Services;
 using Redture.Core.Infrastructure;
 using Redture.Core.Settings;
+using Redture.Platform.Abstractions.Brightness;
 using Redture.Platform.Abstractions.Displays;
 
 namespace Redture.App.ViewModels;
@@ -69,9 +70,10 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         _temperatureKelvin = settings.TemperatureKelvin;
         _automationEnabled = settings.AutomationEnabled;
 
-        // The panic hotkey changes the settings behind the UI's back; without
-        // this the sliders would keep showing a state the screen no longer has.
-        _coordinator.StateResetExternally += (_, _) => ReloadFromSettings();
+        // The panic hotkey and the backlight probe both change state behind the
+        // UI's back; without this the controls would keep showing something the
+        // screen no longer reflects.
+        _coordinator.ExternalStateChanged += (_, _) => ReloadFromCoordinator();
     }
 
     /// <summary>Displays currently attached, refreshed when the panel opens.</summary>
@@ -102,6 +104,30 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     public string PanicHotkeyHint => _coordinator.PanicHotkeyDescription is { } hotkey
         ? $"Press {hotkey} at any time to reset brightness and colour to neutral."
         : "The panic hotkey could not be registered; another app is likely using it.";
+
+    /// <summary>
+    /// Explains which mechanism is doing the dimming, and where the handover
+    /// sits. Worth surfacing: the same slider position behaves differently on a
+    /// monitor that accepts DDC/CI and one that does not.
+    /// </summary>
+    public string BacklightSummary
+    {
+        get
+        {
+            IReadOnlyList<HardwareBrightnessTarget> targets = _coordinator.BacklightTargets;
+
+            if (targets.Count == 0)
+            {
+                return "No backlight control detected on this display, so the whole range is dimmed in software.";
+            }
+
+            string names = string.Join(
+                ", ",
+                targets.Select(target => $"{target.Name} ({DescribeMechanism(target.Mechanism)})"));
+
+            return $"Backlight control: {names}. Above {_coordinator.BacklightSplitPoint:0}% the slider drives the real backlight; below it, the overlay takes over.";
+        }
+    }
 
     public string DisplaySummary => Displays.Count switch
     {
@@ -150,10 +176,10 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Pulls the current settings back into the UI without writing them out
-    /// again or re-applying them — whoever changed them has already done that.
+    /// Pulls the current state back into the UI without writing it out again or
+    /// re-applying it — whoever changed it has already done that.
     /// </summary>
-    private void ReloadFromSettings()
+    private void ReloadFromCoordinator()
     {
         AppSettings settings = _settingsStore.Current;
 
@@ -169,5 +195,14 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         {
             _suppressPersist = false;
         }
+
+        OnPropertyChanged(nameof(BacklightSummary));
     }
+
+    private static string DescribeMechanism(BrightnessMechanism mechanism) => mechanism switch
+    {
+        BrightnessMechanism.DdcCi => "DDC/CI",
+        BrightnessMechanism.WmiPanel => "built-in panel",
+        _ => "unavailable",
+    };
 }

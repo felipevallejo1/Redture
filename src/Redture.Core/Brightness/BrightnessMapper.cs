@@ -89,4 +89,40 @@ public static class BrightnessMapper
         double overlayFraction = 1d - (brightness / splitPoint);
         return new BrightnessPlan(0d, maxOverlayOpacity * overlayFraction);
     }
+
+    /// <summary>
+    /// The inverse of <see cref="Map"/>: given what the display is actually
+    /// doing, works out the slider position that would produce it.
+    /// </summary>
+    /// <remarks>
+    /// Used on first run to adopt the backlight level the user already had.
+    /// Without it, a fresh install would blast a monitor deliberately set to
+    /// 20% up to full brightness simply because 100 is the default value of a
+    /// setting nobody has touched yet.
+    /// </remarks>
+    public static double Unmap(
+        double hardwarePercent,
+        double overlayOpacity,
+        double maxOverlayOpacity,
+        bool hardwareAvailable,
+        double splitPoint = DefaultHardwareSplitPoint)
+    {
+        hardwarePercent = Math.Clamp(hardwarePercent, AppSettings.MinBrightness, AppSettings.MaxBrightness);
+        maxOverlayOpacity = Math.Clamp(maxOverlayOpacity, 0d, AppSettings.AbsoluteMaxOverlayOpacity);
+        splitPoint = Math.Clamp(splitPoint, 1d, AppSettings.MaxBrightness - 1d);
+
+        // With no overlay budget there is nothing to invert on that side.
+        double overlayFraction = maxOverlayOpacity <= 0d
+            ? 0d
+            : Math.Clamp(overlayOpacity / maxOverlayOpacity, 0d, 1d);
+
+        if (!hardwareAvailable)
+        {
+            return AppSettings.MaxBrightness * (1d - overlayFraction);
+        }
+
+        return overlayFraction > 0d
+            ? splitPoint * (1d - overlayFraction)
+            : splitPoint + (hardwarePercent / AppSettings.MaxBrightness * (AppSettings.MaxBrightness - splitPoint));
+    }
 }

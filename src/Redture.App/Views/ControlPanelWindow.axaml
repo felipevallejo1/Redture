@@ -58,9 +58,9 @@
               BorderBrush="#80F0A030"
               BorderThickness="1">
         <StackPanel>
-          <TextBlock Classes="section" Text="Stage 1 — dimming" />
+          <TextBlock Classes="section" Text="Stage 1.5 — brightness" />
           <TextBlock Classes="hint"
-                     Text="Brightness is live and works past the monitor's hardware minimum. Colour temperature still only persists to disk; it starts affecting the screen in stage 2." />
+                     Text="Brightness is live: real backlight where the hardware allows it, software dimming past the hardware minimum. Colour temperature still only persists to disk; it starts affecting the screen in stage 2." />
           <TextBlock Classes="hint" Margin="0,6,0,0" Text="{Binding PanicHotkeyHint}" />
         </StackPanel>
       </Border>
@@ -89,8 +89,9 @@
                   Value="{Binding Brightness}"
                   TickFrequency="10"
                   IsSnapToTickEnabled="False" />
-          <TextBlock Classes="hint"
-                     Text="Dimming is done with a click-through black overlay, which is a pure multiply: black stays black and contrast is preserved. Real backlight control joins the upper part of this range in stage 1.5." />
+          <TextBlock Classes="hint" Text="{Binding BacklightSummary}" />
+          <TextBlock Classes="hint" Margin="0,6,0,0"
+                     Text="Below the handover the screen is dimmed with a click-through black overlay, which is a pure multiply: black stays black and contrast is preserved." />
         </StackPanel>
       </Border>
 

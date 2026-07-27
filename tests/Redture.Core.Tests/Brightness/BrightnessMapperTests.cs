@@ -96,6 +96,58 @@ public sealed class BrightnessMapperTests
         Assert.InRange(plan.OverlayOpacity, 0d, MaxOpacity);
     }
 
+    // --- Inverse mapping (first-run adoption) -------------------------------
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void UnmapIsTheInverseOfMap(bool hardwareAvailable)
+    {
+        // Round-trip over the whole slider: whatever Map produces, Unmap must
+        // recover the position that produced it. This is what makes first-run
+        // adoption land the slider exactly where the display already is.
+        for (double brightness = 0; brightness <= 100; brightness += 0.25)
+        {
+            BrightnessPlan plan = BrightnessMapper.Map(brightness, MaxOpacity, hardwareAvailable);
+
+            double recovered = BrightnessMapper.Unmap(
+                plan.HardwareBrightness ?? 0d,
+                plan.OverlayOpacity,
+                MaxOpacity,
+                hardwareAvailable);
+
+            Assert.Equal(brightness, recovered, precision: 8);
+        }
+    }
+
+    [Fact]
+    public void Unmap_AdoptsAMonitorSittingAtItsHardwareMinimum()
+    {
+        // The real case this exists for: a monitor already at 0% backlight.
+        // The slider must land at the split point -- backlight exhausted, no
+        // overlay yet -- not at 0, which would mean "also dim in software".
+        double slider = BrightnessMapper.Unmap(
+            hardwarePercent: 0,
+            overlayOpacity: 0,
+            MaxOpacity,
+            hardwareAvailable: true);
+
+        Assert.Equal(BrightnessMapper.DefaultHardwareSplitPoint, slider, precision: 8);
+    }
+
+    [Fact]
+    public void Unmap_AdoptsAMonitorAtHalfBrightness()
+    {
+        double slider = BrightnessMapper.Unmap(
+            hardwarePercent: 50,
+            overlayOpacity: 0,
+            MaxOpacity,
+            hardwareAvailable: true);
+
+        // 30 + 50% of the remaining 70.
+        Assert.Equal(65d, slider, precision: 8);
+    }
+
     [Fact]
     public void OverlayOpacityDecreasesMonotonicallyWithBrightness()
     {

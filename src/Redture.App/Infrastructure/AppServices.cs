@@ -4,6 +4,7 @@ using Redture.App.Services;
 using Redture.App.ViewModels;
 using Redture.Core;
 using Redture.Core.Infrastructure;
+using Redture.Platform.Abstractions.Brightness;
 using Redture.Platform.Abstractions.Displays;
 using Redture.Platform.Abstractions.Overlay;
 using Redture.Platform.Abstractions.SystemEvents;
@@ -65,6 +66,7 @@ internal static class AppServices
         // the app still starts and can explain what is unavailable.
         services.AddSingleton<IDisplayEnumerator, UnsupportedDisplayEnumerator>();
         services.AddSingleton<IOverlayController, NullOverlayController>();
+        services.AddSingleton<IHardwareBrightnessController, NullHardwareBrightnessController>();
         services.AddSingleton<ISystemEvents, NullSystemEvents>();
     }
 }

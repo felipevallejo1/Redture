@@ -2,6 +2,7 @@ using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 using Redture.Core.Brightness;
 using Redture.Core.Settings;
+using Redture.Platform.Abstractions.Brightness;
 using Redture.Platform.Abstractions.Overlay;
 using Redture.Platform.Abstractions.SystemEvents;
 
@@ -18,8 +19,9 @@ namespace Redture.App.Services;
 /// actually differs from what the OS already has.
 /// </para>
 /// <para>
-/// It also owns the two reactions Redture must always have: rebuilding the
-/// overlay when displays change, and honouring the panic hotkey.
+/// It also owns the reactions Redture must always have: rebuilding the overlay
+/// when displays change, honouring the panic hotkey, and handing the backlight
+/// back to the user when corrections are switched off.
 /// </para>
 /// </remarks>
 public sealed class DisplayCoordinator : IDisposable
@@ -33,11 +35,19 @@ public sealed class DisplayCoordinator : IDisposable
 
     private readonly ISettingsStore _settingsStore;
     private readonly IOverlayController _overlay;
+    private readonly IHardwareBrightnessController _hardware;
     private readonly ISystemEvents _systemEvents;
     private readonly ILogger<DisplayCoordinator> _logger;
 
     /// <summary>Debounce ticket; see <see cref="OnDisplaysChanged"/>.</summary>
     private int _refreshGeneration;
+
+    /// <summary>
+    /// True once the backlight has been handed back to the user because
+    /// corrections are switched off. Prevents re-sending the restore on every
+    /// subsequent call — each one is a blocking round trip to the monitor.
+    /// </summary>
+    private bool _backlightReleased;
 
     private bool _started;
     private bool _disposed;
@@ -45,26 +55,32 @@ public sealed class DisplayCoordinator : IDisposable
     public DisplayCoordinator(
         ISettingsStore settingsStore,
         IOverlayController overlay,
+        IHardwareBrightnessController hardware,
         ISystemEvents systemEvents,
         ILogger<DisplayCoordinator> logger)
     {
         _settingsStore = settingsStore;
         _overlay = overlay;
+        _hardware = hardware;
         _systemEvents = systemEvents;
         _logger = logger;
     }
 
     /// <summary>
-    /// Raised after the coordinator changes the settings on its own — currently
-    /// only the panic reset. The UI listens so its sliders follow, rather than
-    /// showing a value the screen no longer reflects.
+    /// Raised after the coordinator changes state on its own — the panic reset,
+    /// or the backlight probe finishing. The UI listens so its controls follow,
+    /// rather than showing a value the screen no longer reflects.
     /// </summary>
-    public event EventHandler? StateResetExternally;
+    public event EventHandler? ExternalStateChanged;
 
-    /// <summary>
-    /// The panic shortcut, or null when it could not be registered.
-    /// </summary>
+    /// <summary>The panic shortcut, or null when it could not be registered.</summary>
     public string? PanicHotkeyDescription => _systemEvents.PanicHotkeyDescription;
+
+    /// <summary>Displays whose backlight Redture can drive.</summary>
+    public IReadOnlyList<HardwareBrightnessTarget> BacklightTargets => _hardware.Targets;
+
+    /// <summary>Brightness value at which the backlight hands over to the overlay.</summary>
+    public double BacklightSplitPoint => BrightnessMapper.DefaultHardwareSplitPoint;
 
     /// <summary>
     /// Subscribes to OS notifications and applies the stored state. Must run on
@@ -86,7 +102,13 @@ public sealed class DisplayCoordinator : IDisposable
         _systemEvents.PanicRequested += OnPanicRequested;
         _systemEvents.Start();
 
+        // Overlay first, so the stored dimming is on screen immediately.
         Apply();
+
+        // Backlight discovery is deliberately not on this path: probing DDC/CI
+        // costs roughly 60 ms per monitor and would delay the tray icon by that
+        // much for no reason.
+        _ = Task.Run(ProbeBacklightAsync);
     }
 
     /// <summary>
@@ -103,17 +125,100 @@ public sealed class DisplayCoordinator : IDisposable
 
         AppSettings settings = _settingsStore.Current;
 
-        // hardwareAvailable is false until stage 1.5 introduces DDC/CI and WMI
-        // backlight control. Until then the mapper's software-only path drives
-        // the whole slider — the same path a monitor that refuses DDC/CI will
-        // permanently take.
+        if (!settings.EffectsEnabled)
+        {
+            _overlay.SetOpacity(0d);
+
+            if (!_backlightReleased)
+            {
+                _hardware.RestoreInitial();
+                _backlightReleased = true;
+            }
+
+            return;
+        }
+
+        _backlightReleased = false;
+
         BrightnessPlan plan = BrightnessMapper.Map(
             settings.Brightness,
             settings.MaxOverlayOpacity,
-            hardwareAvailable: false);
+            _hardware.IsAvailable);
 
-        double opacity = settings.EffectsEnabled ? plan.OverlayOpacity : 0d;
-        _overlay.SetOpacity(opacity);
+        _overlay.SetOpacity(plan.OverlayOpacity);
+
+        if (plan.HardwareBrightness is { } backlight)
+        {
+            _hardware.SetBrightness(backlight);
+        }
+    }
+
+    /// <summary>
+    /// Probes for backlight control off the UI thread, then adopts what it
+    /// finds and re-applies.
+    /// </summary>
+    private async Task ProbeBacklightAsync()
+    {
+        try
+        {
+            _hardware.Refresh();
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                AdoptBacklightLevelOnFirstRun();
+                Apply();
+                ExternalStateChanged?.Invoke(this, EventArgs.Empty);
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Backlight discovery failed; the whole brightness range stays in software.");
+        }
+    }
+
+    /// <summary>
+    /// On the first run that finds backlight control, moves the slider to
+    /// wherever the display already is instead of overwriting it.
+    /// </summary>
+    /// <remarks>
+    /// Without this, installing Redture would push a monitor deliberately set
+    /// to 20% up to full brightness, purely because 100 is the default value of
+    /// a setting nobody has touched. It runs once and never again — after that
+    /// the slider is the source of truth.
+    /// </remarks>
+    private void AdoptBacklightLevelOnFirstRun()
+    {
+        AppSettings settings = _settingsStore.Current;
+
+        if (settings.HardwareBrightnessAdopted || !_hardware.IsAvailable)
+        {
+            return;
+        }
+
+        if (_hardware.CurrentPercent is not { } currentPercent)
+        {
+            return;
+        }
+
+        double adopted = BrightnessMapper.Unmap(
+            currentPercent,
+            overlayOpacity: 0d,
+            settings.MaxOverlayOpacity,
+            hardwareAvailable: true);
+
+        settings.Brightness = adopted;
+        settings.HardwareBrightnessAdopted = true;
+        _settingsStore.RequestSave();
+
+        _logger.LogInformation(
+            "Adopted the display's own backlight level ({Current:0}%) as a brightness of {Adopted:0}.",
+            currentPercent,
+            adopted);
     }
 
     private void OnDisplaysChanged(object? sender, EventArgs e)
@@ -126,10 +231,17 @@ public sealed class DisplayCoordinator : IDisposable
             {
                 await Task.Delay(DisplayChangeDebounce).ConfigureAwait(false);
 
-                if (Volatile.Read(ref _refreshGeneration) != generation)
+                if (Volatile.Read(ref _refreshGeneration) != generation || _disposed)
                 {
                     return; // A later change superseded this one.
                 }
+
+                _logger.LogInformation("Rebuilding after a display change.");
+
+                // Backlight handles do not survive a topology change, and
+                // re-probing is slow, so it happens here rather than on the UI
+                // thread.
+                _hardware.Refresh();
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
@@ -138,9 +250,9 @@ public sealed class DisplayCoordinator : IDisposable
                         return;
                     }
 
-                    _logger.LogInformation("Rebuilding overlays after a display change.");
                     _overlay.Refresh();
                     Apply();
+                    ExternalStateChanged?.Invoke(this, EventArgs.Empty);
                 });
             }
             catch (Exception ex)
@@ -170,7 +282,7 @@ public sealed class DisplayCoordinator : IDisposable
             _settingsStore.RequestSave();
 
             Apply();
-            StateResetExternally?.Invoke(this, EventArgs.Empty);
+            ExternalStateChanged?.Invoke(this, EventArgs.Empty);
 
             _logger.LogInformation("Panic reset applied: brightness and colour temperature back to neutral.");
         });
@@ -178,9 +290,8 @@ public sealed class DisplayCoordinator : IDisposable
 
     /// <summary>
     /// Tears the corrections down. Must run on the UI thread, and before the
-    /// process exits: a leftover overlay is not possible (windows die with the
-    /// process) but doing it explicitly keeps the shutdown ordering honest for
-    /// the gamma ramp, which does survive and lands in stage 2.
+    /// process exits: the overlay windows belong to this thread, and the
+    /// backlight has to be handed back to the user.
     /// </summary>
     public void Dispose()
     {
@@ -194,6 +305,9 @@ public sealed class DisplayCoordinator : IDisposable
         _systemEvents.DisplaysChanged -= OnDisplaysChanged;
         _systemEvents.PanicRequested -= OnPanicRequested;
 
+        // Disposing the backlight controller restores every display to the
+        // level it had before Redture started.
+        _hardware.Dispose();
         _overlay.Dispose();
         _systemEvents.Dispose();
 
