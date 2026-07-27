@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Redture.App.Services;
 using Redture.App.ViewModels;
@@ -10,6 +11,7 @@ using Redture.Platform.Abstractions.Gamma;
 using Redture.Platform.Abstractions.Overlay;
 using Redture.Platform.Abstractions.Startup;
 using Redture.Platform.Abstractions.SystemEvents;
+using Redture.Platform.Linux;
 using Redture.Platform.Windows;
 using Serilog;
 
@@ -68,17 +70,28 @@ internal static class AppServices
             return;
         }
 
-        // Linux (stage 5) and macOS (stage 6) fall back to no-op backends so
-        // the app still starts and can explain what is unavailable.
-        services.AddSingleton<IDisplayEnumerator, UnsupportedDisplayEnumerator>();
-        services.AddSingleton<IHdrDetector, NullHdrDetector>();
-        services.AddSingleton<IOverlayController, NullOverlayController>();
-        services.AddSingleton<IHardwareBrightnessController, NullHardwareBrightnessController>();
-        services.AddSingleton<IGammaController, NullGammaController>();
-        services.AddSingleton<IColorConflictDetector, NullColorConflictDetector>();
-        services.AddSingleton<IGammaRangeUnlock, NullGammaRangeUnlock>();
-        services.AddSingleton<ISystemEvents, NullSystemEvents>();
-        services.AddSingleton<IFullscreenDetector, NullFullscreenDetector>();
-        services.AddSingleton<IAutoStartService, NullAutoStartService>();
+        if (OperatingSystem.IsLinux())
+        {
+            // Registers what X11 can deliver. Anything it cannot — the dimming
+            // overlay, backlight control, the panic hotkey — falls through to
+            // the null backends registered below, so the app runs with a
+            // smaller feature set rather than not running.
+            services.AddLinuxPlatform();
+        }
+
+        // Fallbacks for everything a platform module did not provide. TryAdd, so
+        // a real backend registered above always wins and only the gaps get
+        // filled — which is what lets the Linux module register the two things
+        // X11 can do and inherit honest no-ops for the rest.
+        services.TryAddSingleton<IDisplayEnumerator, UnsupportedDisplayEnumerator>();
+        services.TryAddSingleton<IHdrDetector, NullHdrDetector>();
+        services.TryAddSingleton<IOverlayController, NullOverlayController>();
+        services.TryAddSingleton<IHardwareBrightnessController, NullHardwareBrightnessController>();
+        services.TryAddSingleton<IGammaController, NullGammaController>();
+        services.TryAddSingleton<IColorConflictDetector, NullColorConflictDetector>();
+        services.TryAddSingleton<IGammaRangeUnlock, NullGammaRangeUnlock>();
+        services.TryAddSingleton<ISystemEvents, NullSystemEvents>();
+        services.TryAddSingleton<IFullscreenDetector, NullFullscreenDetector>();
+        services.TryAddSingleton<IAutoStartService, NullAutoStartService>();
     }
 }

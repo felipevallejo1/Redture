@@ -13,7 +13,12 @@ public static class GammaRampBuilder
     /// <see cref="GammaRamp.Linear"/>, so "neutral" really means untouched
     /// rather than very slightly tinted.
     /// </summary>
-    public static GammaRamp Build(int kelvin)
+    /// <param name="kelvin">Target colour temperature.</param>
+    /// <param name="levelsPerChannel">
+    /// Entries the display's lookup table expects. Windows always wants 256;
+    /// XRandR reports a size per CRTC, commonly 1024 or 2048.
+    /// </param>
+    public static GammaRamp Build(int kelvin, int levelsPerChannel = GammaRamp.DefaultLevelsPerChannel)
     {
         int clamped = Math.Clamp(
             kelvin,
@@ -21,6 +26,6 @@ public static class GammaRampBuilder
             AppSettings.MaxTemperatureKelvin);
 
         (double r, double g, double b) = PlanckianLocus.EncodedGainsFor(clamped);
-        return GammaRamp.Create(r, g, b);
+        return GammaRamp.Create(r, g, b, levelsPerChannel);
     }
 }

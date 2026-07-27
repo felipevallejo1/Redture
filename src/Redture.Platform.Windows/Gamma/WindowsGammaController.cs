@@ -132,7 +132,8 @@ public sealed class WindowsGammaController : IGammaController
             return GammaVerification.Unknown;
         }
 
-        ushort[] readBack = new ushort[GammaRamp.Channels * GammaRamp.LevelsPerChannel];
+        // GDI's ramp is always 256 entries per channel; it accepts no other size.
+        ushort[] readBack = new ushort[GammaRamp.Channels * GammaRamp.DefaultLevelsPerChannel];
         bool readAny = false;
 
         foreach (DisplayInfo display in _displayEnumerator.GetDisplays())

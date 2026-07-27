@@ -81,7 +81,7 @@ public sealed class GammaRampBuilderTests
 
         for (int channel = 0; channel < GammaRamp.Channels; channel++)
         {
-            for (int level = 1; level < GammaRamp.LevelsPerChannel; level++)
+            for (int level = 1; level < ramp.LevelsPerChannel; level++)
             {
                 Assert.True(
                     ramp[channel, level] >= ramp[channel, level - 1],
@@ -112,7 +112,7 @@ public sealed class GammaRampBuilderTests
     {
         for (int channel = 0; channel < GammaRamp.Channels; channel++)
         {
-            Assert.Equal(GammaRamp.MaxValue, GammaRamp.Linear[channel, GammaRamp.LevelsPerChannel - 1]);
+            Assert.Equal(GammaRamp.MaxValue, GammaRamp.Linear[channel, GammaRamp.Linear.LevelsPerChannel - 1]);
         }
     }
 
@@ -125,6 +125,34 @@ public sealed class GammaRampBuilderTests
 
         int expected = Math.Clamp(kelvin, AppSettings.MinTemperatureKelvin, AppSettings.MaxTemperatureKelvin);
         Assert.True(ramp.HasSameValues(GammaRampBuilder.Build(expected)));
+    }
+
+    [Fact]
+    public void RampsCanBeBuiltAtWhateverSizeTheDisplayAsksFor()
+    {
+        // XRandR reports a ramp size per CRTC, commonly 1024 or 2048. Writing a
+        // 256-entry table into one of those would fill an eighth of it and
+        // leave the rest holding whatever was there before.
+        GammaRamp large = GammaRampBuilder.Build(3000, levelsPerChannel: 1024);
+
+        Assert.Equal(1024, large.LevelsPerChannel);
+        Assert.Equal(GammaRamp.Channels * 1024, large.Values.Length);
+        Assert.Equal(0, large[0, 0]);
+        Assert.Equal(GammaRamp.MaxValue, large[0, 1023]);
+
+        // Same curve, different resolution: the endpoints must still agree with
+        // the 256-entry version.
+        GammaRamp small = GammaRampBuilder.Build(3000);
+        Assert.Equal(small[2, 255], large[2, 1023]);
+    }
+
+    [Fact]
+    public void RampsOfDifferentSizesAreNeverConsideredEqual()
+    {
+        GammaRamp small = GammaRampBuilder.Build(3000);
+        GammaRamp large = GammaRampBuilder.Build(3000, levelsPerChannel: 1024);
+
+        Assert.False(small.HasSameValues(large));
     }
 
     [Fact]

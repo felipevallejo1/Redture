@@ -94,24 +94,30 @@ Built in stages, each one shippable on its own.
 | 2.5 | HDR detection, so the tint fails loudly instead of silently | ✅ done |
 | 3 | Time-of-day automation, solar schedule, manual overrides | ✅ done |
 | 4 | Auto-start, fullscreen detection, tray polish | ✅ done |
-| 5 | Linux backend (X11 + wlroots) | ⬜ next |
-| 6 | macOS backend, packaging, release | ⬜ |
+| 5 | Linux: X11 display enumeration and colour temperature | ✅ done |
+| 5.5 | Linux dimming overlay | ⬜ |
+| 6 | macOS backend, packaging, release | ⬜ next |
 
 ## Platform support
 
-| Platform | Colour temperature | Dimming overlay | Notes |
-|---|---|---|---|
-| Windows 10/11 | `SetDeviceGammaRamp` | Layered click-through window | Primary target. Gamma is unavailable while HDR is on |
-| Linux — X11 | `XRRSetCrtcGamma` | Override-redirect window | Planned, stage 5 |
-| Linux — Wayland (wlroots) | `wlr-gamma-control` | `wlr-layer-shell` | Planned, stage 5 |
-| Linux — Wayland (GNOME/KDE) | ❌ no protocol available | ❌ | Documented limitation, not a bug |
-| macOS | `CGSetDisplayTransferByTable` | Borderless `NSWindow` | Best effort, stage 6 |
+| Platform | Colour temperature | Dimming | Backlight | Notes |
+|---|---|---|---|---|
+| Windows 10/11 | ✅ `SetDeviceGammaRamp` | ✅ layered click-through window | ✅ DDC/CI + WMI | Primary target. Gamma is ignored while HDR is on, and Redture says so |
+| Linux — X11 | ✅ `XRRSetCrtcGamma` | ⬜ not yet | ⬜ not yet | Verified against a real X server. Ramp size is read per CRTC rather than assumed |
+| Linux — Wayland | ❌ | ❌ | ⬜ | No standard protocol exists for setting a colour lookup table. `wlr-gamma-control` is a wlroots extension, so it would cover Sway and Hyprland but not GNOME or KDE |
+| macOS | ⬜ | ⬜ | ⬜ | Stage 6 |
+
+On a platform where something is missing, Redture runs with a smaller feature
+set and reports what is unavailable — it does not pretend, and it does not
+refuse to start. `dotnet run --project tools/Redture.Diagnostics` prints exactly
+what the current machine supports.
 
 ## Build and run
 
 Requires the [.NET 9 SDK](https://dotnet.microsoft.com/download).
 
 ```bash
+git clone https://github.com/felipevallejo1/Redture.git
 cd Redture
 dotnet build
 dotnet test
@@ -136,10 +142,13 @@ src/
   Redture.Core                    Platform-agnostic logic. References no OS API,
                                   no UI framework. Fully unit-testable.
   Redture.Platform.Abstractions   Contracts between Core/App and the OS backends.
-  Redture.Platform.Windows        Windows backend (P/Invoke to user32, gdi32, …).
+  Redture.Platform.Windows        Windows backend (user32, gdi32, dxva2, …).
+  Redture.Platform.Linux          Linux backend (libX11, libXrandr).
   Redture.App                     Avalonia UI: tray icon, control panel, DI root.
+tools/
+  Redture.Diagnostics             Prints what this machine actually supports.
 tests/
-  Redture.Core.Tests              Unit tests for Core.
+  Redture.Core.Tests              111 unit tests for Core.
 docs/
   architecture.md                 Design, APIs used, known risks.
   adr/                            Architecture Decision Records.

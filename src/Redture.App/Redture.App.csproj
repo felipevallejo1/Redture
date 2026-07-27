@@ -33,6 +33,7 @@
     <ProjectReference Include="..\Redture.Core\Redture.Core.csproj" />
     <ProjectReference Include="..\Redture.Platform.Abstractions\Redture.Platform.Abstractions.csproj" />
     <ProjectReference Include="..\Redture.Platform.Windows\Redture.Platform.Windows.csproj" />
+    <ProjectReference Include="..\Redture.Platform.Linux\Redture.Platform.Linux.csproj" />
   </ItemGroup>
 
   <ItemGroup>
