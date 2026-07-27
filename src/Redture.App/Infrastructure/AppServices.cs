@@ -5,6 +5,8 @@ using Redture.App.ViewModels;
 using Redture.Core;
 using Redture.Core.Infrastructure;
 using Redture.Platform.Abstractions.Displays;
+using Redture.Platform.Abstractions.Overlay;
+using Redture.Platform.Abstractions.SystemEvents;
 using Redture.Platform.Windows;
 using Serilog;
 
@@ -32,6 +34,7 @@ internal static class AppServices
         services.AddRedtureCore();
         AddPlatformServices(services);
 
+        services.AddSingleton<DisplayCoordinator>();
         services.AddSingleton<ApplicationLifecycle>();
         services.AddSingleton<ControlPanelPresenter>();
         services.AddSingleton<TrayIconService>();
@@ -58,8 +61,10 @@ internal static class AppServices
             return;
         }
 
-        // Linux (stage 5) and macOS (stage 6) fall back to a no-op backend so
+        // Linux (stage 5) and macOS (stage 6) fall back to no-op backends so
         // the app still starts and can explain what is unavailable.
         services.AddSingleton<IDisplayEnumerator, UnsupportedDisplayEnumerator>();
+        services.AddSingleton<IOverlayController, NullOverlayController>();
+        services.AddSingleton<ISystemEvents, NullSystemEvents>();
     }
 }

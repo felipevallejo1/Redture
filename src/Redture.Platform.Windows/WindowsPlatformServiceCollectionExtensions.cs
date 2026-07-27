@@ -1,7 +1,11 @@
 using System.Runtime.Versioning;
 using Microsoft.Extensions.DependencyInjection;
 using Redture.Platform.Abstractions.Displays;
+using Redture.Platform.Abstractions.Overlay;
+using Redture.Platform.Abstractions.SystemEvents;
 using Redture.Platform.Windows.Displays;
+using Redture.Platform.Windows.Overlay;
+using Redture.Platform.Windows.SystemEvents;
 
 namespace Redture.Platform.Windows;
 
@@ -21,6 +25,8 @@ public static class WindowsPlatformServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IDisplayEnumerator, WindowsDisplayEnumerator>();
+        services.AddSingleton<IOverlayController, WindowsOverlayController>();
+        services.AddSingleton<ISystemEvents, WindowsSystemEvents>();
 
         return services;
     }

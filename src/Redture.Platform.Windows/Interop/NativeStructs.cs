@@ -3,6 +3,44 @@ using System.Runtime.Versioning;
 
 namespace Redture.Platform.Windows.Interop;
 
+/// <summary>
+/// Win32 <c>WNDCLASSEXW</c>, used to register the overlay and message window
+/// classes.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+[SupportedOSPlatform("windows")]
+internal struct WindowClassEx
+{
+    /// <summary>Must be set to <c>sizeof(WNDCLASSEXW)</c> before the call.</summary>
+    public uint cbSize;
+
+    public uint style;
+
+    /// <summary>
+    /// Function pointer to the window procedure. Held as a raw pointer rather
+    /// than a delegate field so the caller stays responsible for keeping the
+    /// managed delegate rooted.
+    /// </summary>
+    public nint lpfnWndProc;
+
+    public int cbClsExtra;
+    public int cbWndExtra;
+    public nint hInstance;
+    public nint hIcon;
+    public nint hCursor;
+
+    /// <summary>Brush the system uses to erase the background.</summary>
+    public nint hbrBackground;
+
+    [MarshalAs(UnmanagedType.LPWStr)]
+    public string? lpszMenuName;
+
+    [MarshalAs(UnmanagedType.LPWStr)]
+    public string lpszClassName;
+
+    public nint hIconSm;
+}
+
 /// <summary>Win32 <c>POINTL</c> / <c>POINT</c>.</summary>
 [StructLayout(LayoutKind.Sequential)]
 [SupportedOSPlatform("windows")]

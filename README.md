@@ -56,8 +56,8 @@ Built in stages, each one shippable on its own.
 | Stage | Scope | Status |
 |---|---|---|
 | 0 | Scaffolding: tray, DI, logging, settings, display enumeration, crash detection | ✅ done |
-| 1 | Dimming overlay (Windows), multi-monitor, panic hotkey | ⬜ next |
-| 1.5 | Real backlight control, unified two-segment brightness slider | ⬜ |
+| 1 | Dimming overlay (Windows), multi-monitor, capture exclusion, panic hotkey | ✅ done |
+| 1.5 | Real backlight control, unified two-segment brightness slider | ⬜ next |
 | 2 | Colour temperature via gamma ramp, HDR detection, conflict detection | ⬜ |
 | 3 | Time-of-day automation, profiles, manual overrides | ⬜ |
 | 4 | Auto-start, global hotkeys, fullscreen detection, polish | ⬜ |
@@ -79,7 +79,6 @@ Built in stages, each one shippable on its own.
 Requires the [.NET 9 SDK](https://dotnet.microsoft.com/download).
 
 ```bash
-git clone https://github.com/fulbarium/Redture.git
 cd Redture
 dotnet build
 dotnet test
@@ -88,6 +87,10 @@ dotnet run --project src/Redture.App -- --show
 
 Redture starts in the system tray. `--show` opens the control panel on launch;
 without it the app starts silently, which is how it will run at logon.
+
+**Press `Ctrl + Alt + Shift + R` at any time** to reset brightness and colour
+back to neutral. That shortcut is the escape hatch: dimming can go dark enough
+that finding the slider again is genuinely hard.
 
 User data lives in `%APPDATA%\Redture` (`~/.config/Redture` on Linux):
 `settings.json` and rolling logs under `logs/`. Set `REDTURE_DATA_DIR` to

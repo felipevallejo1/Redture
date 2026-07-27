@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Redture.App.Infrastructure;
+using Redture.App.Services;
 using Redture.Core.Infrastructure;
 using Redture.Core.Settings;
 using Redture.Platform.Abstractions.Displays;
@@ -13,23 +14,26 @@ namespace Redture.App.ViewModels;
 /// Backing view model for the control panel.
 /// </summary>
 /// <remarks>
-/// The view model is the only thing that writes to <see cref="AppSettings"/>
-/// from the UI. Every change goes through <see cref="Persist"/>, which mutates
-/// the live settings object and asks the store for a debounced save — dragging
-/// a slider therefore produces exactly one disk write, 750 ms after the user
-/// lets go.
-/// <para>
-/// Stage 0 stops there: the values round-trip to disk but nothing applies them
-/// to the screen yet. The overlay (stage 1) and the gamma ramp (stage 2) attach
-/// to the same properties.
-/// </para>
+/// Every change follows the same two steps: write it into the live
+/// <see cref="AppSettings"/> and schedule a debounced save, then ask
+/// <see cref="DisplayCoordinator"/> to push the new state to the screen. The
+/// view model never touches an OS API itself — it does not even know whether
+/// dimming is done by a backlight or by an overlay.
 /// </remarks>
 public sealed partial class ControlPanelViewModel : ObservableObject
 {
     private readonly ISettingsStore _settingsStore;
     private readonly IDisplayEnumerator _displayEnumerator;
+    private readonly DisplayCoordinator _coordinator;
     private readonly IAppPaths _paths;
     private readonly ILogger<ControlPanelViewModel> _logger;
+
+    /// <summary>
+    /// Set while the view model is being refreshed from the settings, so the
+    /// generated change handlers do not write straight back to the source they
+    /// are reading from.
+    /// </summary>
+    private bool _suppressPersist;
 
     [ObservableProperty]
     private bool _effectsEnabled;
@@ -46,11 +50,13 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     public ControlPanelViewModel(
         ISettingsStore settingsStore,
         IDisplayEnumerator displayEnumerator,
+        DisplayCoordinator coordinator,
         IAppPaths paths,
         ILogger<ControlPanelViewModel> logger)
     {
         _settingsStore = settingsStore;
         _displayEnumerator = displayEnumerator;
+        _coordinator = coordinator;
         _paths = paths;
         _logger = logger;
 
@@ -63,9 +69,9 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         _temperatureKelvin = settings.TemperatureKelvin;
         _automationEnabled = settings.AutomationEnabled;
 
-        // Displays are not enumerated here: ControlPanelPresenter refreshes them
-        // every time the panel is opened, which is the only moment the list is
-        // actually looked at.
+        // The panic hotkey changes the settings behind the UI's back; without
+        // this the sliders would keep showing a state the screen no longer has.
+        _coordinator.StateResetExternally += (_, _) => ReloadFromSettings();
     }
 
     /// <summary>Displays currently attached, refreshed when the panel opens.</summary>
@@ -88,6 +94,14 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     public string SettingsPath => _paths.SettingsFilePath;
 
     public string LogPath => _paths.LogDirectory;
+
+    /// <summary>
+    /// Only advertises the escape hatch when it was actually registered — the
+    /// combination may already belong to another application.
+    /// </summary>
+    public string PanicHotkeyHint => _coordinator.PanicHotkeyDescription is { } hotkey
+        ? $"Press {hotkey} at any time to reset brightness and colour to neutral."
+        : "The panic hotkey could not be registered; another app is likely using it.";
 
     public string DisplaySummary => Displays.Count switch
     {
@@ -119,10 +133,41 @@ public sealed partial class ControlPanelViewModel : ObservableObject
 
     partial void OnAutomationEnabledChanged(bool value) => Persist(s => s.AutomationEnabled = value);
 
-    /// <summary>Applies a change to the live settings and schedules a save.</summary>
+    /// <summary>
+    /// Applies a change to the live settings, schedules a save and pushes the
+    /// result to the screen.
+    /// </summary>
     private void Persist(Action<AppSettings> change)
     {
+        if (_suppressPersist)
+        {
+            return;
+        }
+
         change(_settingsStore.Current);
         _settingsStore.RequestSave();
+        _coordinator.Apply();
+    }
+
+    /// <summary>
+    /// Pulls the current settings back into the UI without writing them out
+    /// again or re-applying them — whoever changed them has already done that.
+    /// </summary>
+    private void ReloadFromSettings()
+    {
+        AppSettings settings = _settingsStore.Current;
+
+        _suppressPersist = true;
+        try
+        {
+            EffectsEnabled = settings.EffectsEnabled;
+            Brightness = settings.Brightness;
+            TemperatureKelvin = settings.TemperatureKelvin;
+            AutomationEnabled = settings.AutomationEnabled;
+        }
+        finally
+        {
+            _suppressPersist = false;
+        }
     }
 }

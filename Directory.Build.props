@@ -29,7 +29,6 @@
     <Company>Redture</Company>
     <Copyright>Copyright (c) 2026 Felipe</Copyright>
     <VersionPrefix>0.1.0</VersionPrefix>
-    <RepositoryUrl>https://github.com/fulbarium/Redture</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 

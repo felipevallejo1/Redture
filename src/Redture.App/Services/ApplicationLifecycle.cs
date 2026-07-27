@@ -22,6 +22,7 @@ public sealed class ApplicationLifecycle
     private readonly ISettingsStore _settingsStore;
     private readonly CleanShutdownSentinel _sentinel;
     private readonly ControlPanelPresenter _presenter;
+    private readonly DisplayCoordinator _coordinator;
     private readonly ILogger<ApplicationLifecycle> _logger;
 
     /// <summary>0 = running, 1 = shutdown already under way.</summary>
@@ -31,11 +32,13 @@ public sealed class ApplicationLifecycle
         ISettingsStore settingsStore,
         CleanShutdownSentinel sentinel,
         ControlPanelPresenter presenter,
+        DisplayCoordinator coordinator,
         ILogger<ApplicationLifecycle> logger)
     {
         _settingsStore = settingsStore;
         _sentinel = sentinel;
         _presenter = presenter;
+        _coordinator = coordinator;
         _logger = logger;
     }
 
@@ -66,6 +69,10 @@ public sealed class ApplicationLifecycle
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            // Corrections come off the screen before any window closes: window
+            // handles belong to this thread, and the overlay must not outlive
+            // the message loop that owns it.
+            _coordinator.Dispose();
             _presenter.PrepareForShutdown();
 
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

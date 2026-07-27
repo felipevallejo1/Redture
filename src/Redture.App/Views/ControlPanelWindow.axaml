@@ -52,15 +52,16 @@
         <TextBlock Classes="hint" Text="Colour temperature and below-minimum brightness, in one control." />
       </StackPanel>
 
-      <!-- Stage banner: removed once the effects are actually wired up. -->
+      <!-- Stage banner: removed once every effect is wired up. -->
       <Border Classes="card"
               Background="#33F0A030"
               BorderBrush="#80F0A030"
               BorderThickness="1">
         <StackPanel>
-          <TextBlock Classes="section" Text="Stage 0 — scaffolding" />
+          <TextBlock Classes="section" Text="Stage 1 — dimming" />
           <TextBlock Classes="hint"
-                     Text="These controls persist to disk and reload on launch, but do not affect the screen yet. Dimming arrives in stage 1, colour temperature in stage 2." />
+                     Text="Brightness is live and works past the monitor's hardware minimum. Colour temperature still only persists to disk; it starts affecting the screen in stage 2." />
+          <TextBlock Classes="hint" Margin="0,6,0,0" Text="{Binding PanicHotkeyHint}" />
         </StackPanel>
       </Border>
 
@@ -89,7 +90,7 @@
                   TickFrequency="10"
                   IsSnapToTickEnabled="False" />
           <TextBlock Classes="hint"
-                     Text="The upper range will drive real backlight brightness; the lower range keeps dimming past the monitor's hardware minimum using a black overlay." />
+                     Text="Dimming is done with a click-through black overlay, which is a pure multiply: black stays black and contrast is preserved. Real backlight control joins the upper part of this range in stage 1.5." />
         </StackPanel>
       </Border>
 
@@ -111,7 +112,7 @@
             <TextBlock Grid.Column="2" Classes="hint" Text="cool" />
           </Grid>
           <TextBlock Classes="hint" Margin="0,6,0,0"
-                     Text="6500 K is the neutral white point: no tint is applied." />
+                     Text="6500 K is the neutral white point: no tint is applied. Not wired to the screen yet — stage 2." />
         </StackPanel>
       </Border>
 
