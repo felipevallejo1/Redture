@@ -8,6 +8,7 @@ using Redture.Core.Infrastructure;
 using Redture.Core.Settings;
 using Redture.Platform.Abstractions.Brightness;
 using Redture.Platform.Abstractions.Displays;
+using Redture.Platform.Abstractions.Gamma;
 
 namespace Redture.App.ViewModels;
 
@@ -26,6 +27,7 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     private readonly ISettingsStore _settingsStore;
     private readonly IDisplayEnumerator _displayEnumerator;
     private readonly DisplayCoordinator _coordinator;
+    private readonly IGammaRangeUnlock _gammaRange;
     private readonly IAppPaths _paths;
     private readonly ILogger<ControlPanelViewModel> _logger;
 
@@ -52,12 +54,14 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         ISettingsStore settingsStore,
         IDisplayEnumerator displayEnumerator,
         DisplayCoordinator coordinator,
+        IGammaRangeUnlock gammaRange,
         IAppPaths paths,
         ILogger<ControlPanelViewModel> logger)
     {
         _settingsStore = settingsStore;
         _displayEnumerator = displayEnumerator;
         _coordinator = coordinator;
+        _gammaRange = gammaRange;
         _paths = paths;
         _logger = logger;
 
@@ -152,12 +156,53 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Whether to offer the extended gamma range. Only shown once Windows has
+    /// actually refused a ramp: suggesting a machine-wide registry change and a
+    /// sign-out before there is a problem would be scaremongering.
+    /// </summary>
+    public bool CanOfferGammaRangeUnlock =>
+        _gammaRange.CanUnlock && _coordinator.ColorTemperatureRejected;
+
+    public string GammaRangeStatus => _gammaRange.State switch
+    {
+        GammaRangeState.UnlockedPendingSignOut =>
+            "The extended range is set but not yet active. Sign out and back in to apply it.",
+        GammaRangeState.Unlocked =>
+            "The extended gamma range is active, so the full warmth of the slider is available.",
+        GammaRangeState.Restricted =>
+            "Windows limits how far a gamma ramp may deviate from linear, which caps how warm any colour tool can go. Lifting it is a machine-wide change that needs administrator rights and a sign-out.",
+        _ => string.Empty,
+    };
+
+    /// <summary>Warning text when another colour tool is fighting Redture.</summary>
+    public string? ConflictWarning => _coordinator.ColorConflictWarning;
+
+    /// <summary>Drives the visibility of the conflict banner.</summary>
+    public bool HasConflict => _coordinator.ColorConflictWarning is not null;
+
     public string DisplaySummary => Displays.Count switch
     {
         0 => "No displays detected",
         1 => "1 display detected",
         var count => $"{count} displays detected",
     };
+
+    /// <summary>
+    /// Asks Windows to lift the gamma range restriction, which raises a UAC
+    /// prompt. Never invoked automatically.
+    /// </summary>
+    [RelayCommand]
+    private void UnlockGammaRange()
+    {
+        _settingsStore.Current.ExtendedGammaRangeOptIn = true;
+        _settingsStore.RequestSave();
+
+        _gammaRange.TryRequestUnlock();
+
+        OnPropertyChanged(nameof(GammaRangeStatus));
+        OnPropertyChanged(nameof(CanOfferGammaRangeUnlock));
+    }
 
     /// <summary>Re-reads the display topology from the OS.</summary>
     [RelayCommand]
@@ -185,6 +230,7 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         // The ramp may be refused at one end of the slider and accepted at the
         // other, so the explanation has to be re-read after every change.
         OnPropertyChanged(nameof(TemperatureStatus));
+        OnPropertyChanged(nameof(CanOfferGammaRangeUnlock));
     }
 
     partial void OnAutomationEnabledChanged(bool value) => Persist(s => s.AutomationEnabled = value);
@@ -228,6 +274,8 @@ public sealed partial class ControlPanelViewModel : ObservableObject
 
         OnPropertyChanged(nameof(BacklightSummary));
         OnPropertyChanged(nameof(TemperatureStatus));
+        OnPropertyChanged(nameof(ConflictWarning));
+        OnPropertyChanged(nameof(HasConflict));
     }
 
     private static string DescribeMechanism(BrightnessMechanism mechanism) => mechanism switch

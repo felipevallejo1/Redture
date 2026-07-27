@@ -40,6 +40,7 @@ public sealed class DisplayCoordinator : IDisposable
     private readonly IOverlayController _overlay;
     private readonly IHardwareBrightnessController _hardware;
     private readonly IGammaController _gamma;
+    private readonly ColorConflictMonitor _conflicts;
     private readonly ISystemEvents _systemEvents;
     private readonly CleanShutdownSentinel _sentinel;
     private readonly ILogger<DisplayCoordinator> _logger;
@@ -62,6 +63,7 @@ public sealed class DisplayCoordinator : IDisposable
         IOverlayController overlay,
         IHardwareBrightnessController hardware,
         IGammaController gamma,
+        ColorConflictMonitor conflicts,
         ISystemEvents systemEvents,
         CleanShutdownSentinel sentinel,
         ILogger<DisplayCoordinator> logger)
@@ -70,6 +72,7 @@ public sealed class DisplayCoordinator : IDisposable
         _overlay = overlay;
         _hardware = hardware;
         _gamma = gamma;
+        _conflicts = conflicts;
         _systemEvents = systemEvents;
         _sentinel = sentinel;
         _logger = logger;
@@ -101,6 +104,12 @@ public sealed class DisplayCoordinator : IDisposable
     public bool ColorTemperatureRejected => _gamma.LastRampRejected;
 
     /// <summary>
+    /// Message describing another application fighting over the colour lookup
+    /// table, or null while nothing has been observed.
+    /// </summary>
+    public string? ColorConflictWarning => _conflicts.Description;
+
+    /// <summary>
     /// Subscribes to OS notifications and applies the stored state. Must run on
     /// the UI thread: the overlay and the message window both create window
     /// handles, which belong to the thread that created them.
@@ -120,6 +129,8 @@ public sealed class DisplayCoordinator : IDisposable
         _systemEvents.SessionResumed += OnSessionResumed;
         _systemEvents.PanicRequested += OnPanicRequested;
         _systemEvents.Start();
+
+        _conflicts.ConflictDetected += (_, _) => ExternalStateChanged?.Invoke(this, EventArgs.Empty);
 
         // A gamma ramp survives the process that set it. If the previous run
         // was killed, the display may still be carrying its tint with nothing
@@ -156,6 +167,7 @@ public sealed class DisplayCoordinator : IDisposable
         {
             _overlay.SetOpacity(0d);
             _gamma.Apply(GammaRamp.Linear);
+            _conflicts.SetTintApplied(false);
 
             if (!_backlightReleased)
             {
@@ -169,6 +181,10 @@ public sealed class DisplayCoordinator : IDisposable
         _backlightReleased = false;
 
         _gamma.Apply(GammaRampBuilder.Build(settings.TemperatureKelvin));
+
+        // Only worth watching for a conflict while Redture is actually asking
+        // for a tint: with a neutral ramp there is nothing to be overwritten.
+        _conflicts.SetTintApplied(settings.TemperatureKelvin != AppSettings.NeutralTemperatureKelvin);
 
         BrightnessPlan plan = BrightnessMapper.Map(
             settings.Brightness,
@@ -357,6 +373,8 @@ public sealed class DisplayCoordinator : IDisposable
         _systemEvents.DisplaysChanged -= OnDisplaysChanged;
         _systemEvents.SessionResumed -= OnSessionResumed;
         _systemEvents.PanicRequested -= OnPanicRequested;
+
+        _conflicts.Dispose();
 
         // Order matters. The gamma ramp is global driver state that outlives
         // this process, so it is the one thing that must be handed back first

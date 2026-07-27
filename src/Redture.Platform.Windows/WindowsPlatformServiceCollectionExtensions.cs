@@ -32,6 +32,8 @@ public static class WindowsPlatformServiceCollectionExtensions
         services.AddSingleton<IOverlayController, WindowsOverlayController>();
         services.AddSingleton<IHardwareBrightnessController, WindowsHardwareBrightnessController>();
         services.AddSingleton<IGammaController, WindowsGammaController>();
+        services.AddSingleton<IColorConflictDetector, WindowsColorConflictDetector>();
+        services.AddSingleton<IGammaRangeUnlock, WindowsGammaRangeUnlock>();
         services.AddSingleton<ISystemEvents, WindowsSystemEvents>();
 
         return services;

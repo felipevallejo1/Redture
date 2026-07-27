@@ -102,6 +102,51 @@ public sealed class WindowsGammaController : IGammaController
         Write(GammaRamp.Linear);
     }
 
+    public GammaVerification Verify()
+    {
+        if (_disposed || _appliedRamp is null)
+        {
+            return GammaVerification.Unknown;
+        }
+
+        ushort[] readBack = new ushort[GammaRamp.Channels * GammaRamp.LevelsPerChannel];
+        bool readAny = false;
+
+        foreach (DisplayInfo display in _displayEnumerator.GetDisplays())
+        {
+            nint deviceContext = Gdi32.CreateDCW("DISPLAY", display.Id, null, 0);
+            if (deviceContext == 0)
+            {
+                continue;
+            }
+
+            bool read;
+            try
+            {
+                read = Gdi32.GetDeviceGammaRamp(deviceContext, readBack);
+            }
+            finally
+            {
+                Gdi32.DeleteDC(deviceContext);
+            }
+
+            if (!read)
+            {
+                continue;
+            }
+
+            readAny = true;
+
+            if (!readBack.AsSpan().SequenceEqual(_appliedRamp.Values))
+            {
+                _logger.LogDebug("The LUT on {DisplayId} is no longer the one Redture wrote.", display.Id);
+                return GammaVerification.Foreign;
+            }
+        }
+
+        return readAny ? GammaVerification.Matches : GammaVerification.Unknown;
+    }
+
     private void Write(GammaRamp ramp)
     {
         IReadOnlyList<DisplayInfo> displays = _displayEnumerator.GetDisplays();

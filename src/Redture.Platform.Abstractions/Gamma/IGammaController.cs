@@ -53,4 +53,17 @@ public interface IGammaController : IDisposable
     /// an unclean shutdown, and the last thing that runs before exit.
     /// </summary>
     void ResetToLinear();
+
+    /// <summary>
+    /// Reads the table back out of the driver and reports whether it is still
+    /// the one Redture wrote.
+    /// </summary>
+    /// <remarks>
+    /// This is how a conflict with another colour tool is detected. Guessing
+    /// from a process list or an undocumented registry blob only recognises the
+    /// tools someone thought to enumerate; reading the LUT back catches
+    /// anything that writes it, including a vendor control panel nobody
+    /// anticipated.
+    /// </remarks>
+    GammaVerification Verify();
 }

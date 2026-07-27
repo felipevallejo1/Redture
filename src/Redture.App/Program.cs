@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Redture.App.Infrastructure;
 using Redture.Core.Infrastructure;
 using Redture.Core.Settings;
+using Redture.Platform.Windows.Gamma;
 using Serilog;
 
 namespace Redture.App;
@@ -20,6 +21,14 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // Handled before the single-instance check on purpose: this switch runs
+        // in a short-lived elevated process launched by the instance already
+        // running, which would otherwise turn it away at the door.
+        if (StartupOptions.IsGammaRangeUnlockRequest(args))
+        {
+            return RunGammaRangeUnlock();
+        }
+
         // Before anything else: refuse to run twice. Two instances would each
         // apply their own display corrections on top of the other's.
         using SingleInstanceGuard? instance = SingleInstanceGuard.TryAcquire();
@@ -71,6 +80,27 @@ internal static class Program
             Log.Information("Redture stopped.");
             Log.CloseAndFlush();
         }
+    }
+
+    /// <summary>
+    /// Writes the machine-wide registry value that lifts Windows' restriction
+    /// on gamma ramps, then exits.
+    /// </summary>
+    /// <remarks>
+    /// Runs as its own elevated process so that Redture itself never has to run
+    /// as administrator. It touches nothing else: no UI, no settings, no
+    /// display state.
+    /// </remarks>
+    private static int RunGammaRangeUnlock()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return 1;
+        }
+
+        bool applied = WindowsGammaRangeUnlock.ApplyElevated(out string message);
+        Console.WriteLine(message);
+        return applied ? 0 : 1;
     }
 
     /// <summary>

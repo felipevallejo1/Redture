@@ -55,6 +55,23 @@ backlight, and when that bottoms out the overlay picks up seamlessly. On first
 run Redture adopts whatever level the display already had rather than
 overwriting it, and it restores that level when you quit.
 
+### Detecting a fight over the LUT
+
+The colour lookup table is one global slot with no ownership and no
+notification. Two colour tools writing it simply take turns, and the user sees
+the screen flicker between two tints.
+
+Redture finds this out by **reading the table back**, not by looking for known
+applications in the process list. A process-name check only recognises the tools
+someone thought to enumerate; a read-back catches anything that writes the LUT,
+including a vendor control panel nobody anticipated. The process list is used
+only to put a name in the message.
+
+And once a conflict is confirmed, Redture **stops**. Re-applying would win the
+next round and lose the one after, turning a static conflict into a visible
+ping-pong. Reporting it once and stepping back leaves a stable screen and an
+explanation the user can act on.
+
 ## Status
 
 Built in stages, each one shippable on its own.
@@ -64,7 +81,8 @@ Built in stages, each one shippable on its own.
 | 0 | Scaffolding: tray, DI, logging, settings, display enumeration, crash detection | ✅ done |
 | 1 | Dimming overlay (Windows), multi-monitor, capture exclusion, panic hotkey | ✅ done |
 | 1.5 | Real backlight control (DDC/CI + WMI), unified two-segment slider | ✅ done |
-| 2 | Colour temperature via gamma ramp, HDR detection, conflict detection | ⬜ next |
+| 2 | Colour temperature via gamma ramp, conflict detection, gamma-range opt-in | ✅ done |
+| 2.5 | HDR detection, so the tint fails loudly instead of silently | ⬜ next |
 | 3 | Time-of-day automation, profiles, manual overrides | ⬜ |
 | 4 | Auto-start, global hotkeys, fullscreen detection, polish | ⬜ |
 | 5 | Linux backend (X11 + wlroots) | ⬜ |

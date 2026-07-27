@@ -34,6 +34,8 @@ public sealed class NullGammaController : IGammaController
     {
     }
 
+    public GammaVerification Verify() => GammaVerification.Unknown;
+
     public void Dispose()
     {
     }

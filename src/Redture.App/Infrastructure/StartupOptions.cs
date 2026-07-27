@@ -12,6 +12,22 @@ internal sealed record StartupOptions(bool ShowPanelOnStart)
 {
     private const string ShowSwitch = "--show";
 
+    /// <summary>
+    /// Switch used by the short-lived elevated process that lifts Windows'
+    /// gamma range restriction. Declared here rather than referenced from the
+    /// Windows backend so the check itself stays platform-neutral.
+    /// </summary>
+    private const string UnlockGammaRangeSwitch = "--unlock-gamma-range";
+
     public static StartupOptions Parse(string[] args) =>
-        new(ShowPanelOnStart: args.Any(arg => string.Equals(arg, ShowSwitch, StringComparison.OrdinalIgnoreCase)));
+        new(ShowPanelOnStart: Has(args, ShowSwitch));
+
+    /// <summary>
+    /// Whether this process was started solely to apply the registry change.
+    /// Checked before anything else, including the single-instance guard.
+    /// </summary>
+    public static bool IsGammaRangeUnlockRequest(string[] args) => Has(args, UnlockGammaRangeSwitch);
+
+    private static bool Has(string[] args, string name) =>
+        args.Any(arg => string.Equals(arg, name, StringComparison.OrdinalIgnoreCase));
 }

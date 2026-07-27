@@ -36,6 +36,7 @@ internal static class AppServices
         services.AddRedtureCore();
         AddPlatformServices(services);
 
+        services.AddSingleton<ColorConflictMonitor>();
         services.AddSingleton<DisplayCoordinator>();
         services.AddSingleton<ApplicationLifecycle>();
         services.AddSingleton<ControlPanelPresenter>();
@@ -69,6 +70,8 @@ internal static class AppServices
         services.AddSingleton<IOverlayController, NullOverlayController>();
         services.AddSingleton<IHardwareBrightnessController, NullHardwareBrightnessController>();
         services.AddSingleton<IGammaController, NullGammaController>();
+        services.AddSingleton<IColorConflictDetector, NullColorConflictDetector>();
+        services.AddSingleton<IGammaRangeUnlock, NullGammaRangeUnlock>();
         services.AddSingleton<ISystemEvents, NullSystemEvents>();
     }
 }
