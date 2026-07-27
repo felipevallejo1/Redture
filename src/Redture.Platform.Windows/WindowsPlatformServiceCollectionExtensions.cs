@@ -7,7 +7,9 @@ using Redture.Platform.Abstractions.Overlay;
 using Redture.Platform.Abstractions.SystemEvents;
 using Redture.Platform.Windows.Brightness;
 using Redture.Platform.Windows.Displays;
+using Redture.Platform.Abstractions.Startup;
 using Redture.Platform.Windows.Gamma;
+using Redture.Platform.Windows.Startup;
 using Redture.Platform.Windows.Overlay;
 using Redture.Platform.Windows.SystemEvents;
 
@@ -36,6 +38,8 @@ public static class WindowsPlatformServiceCollectionExtensions
         services.AddSingleton<IColorConflictDetector, WindowsColorConflictDetector>();
         services.AddSingleton<IGammaRangeUnlock, WindowsGammaRangeUnlock>();
         services.AddSingleton<ISystemEvents, WindowsSystemEvents>();
+        services.AddSingleton<IFullscreenDetector, WindowsFullscreenDetector>();
+        services.AddSingleton<IAutoStartService, WindowsAutoStartService>();
 
         return services;
     }

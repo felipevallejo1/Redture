@@ -11,6 +11,7 @@ using Redture.Core.Settings;
 using Redture.Platform.Abstractions.Brightness;
 using Redture.Platform.Abstractions.Displays;
 using Redture.Platform.Abstractions.Gamma;
+using Redture.Platform.Abstractions.Startup;
 
 namespace Redture.App.ViewModels;
 
@@ -31,6 +32,7 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     private readonly DisplayCoordinator _coordinator;
     private readonly AutomationService _automation;
     private readonly IGammaRangeUnlock _gammaRange;
+    private readonly IAutoStartService _autoStart;
     private readonly IAppPaths _paths;
     private readonly ILogger<ControlPanelViewModel> _logger;
 
@@ -52,6 +54,9 @@ public sealed partial class ControlPanelViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _automationEnabled;
+
+    [ObservableProperty]
+    private bool _startWithSystem;
 
     [ObservableProperty]
     private int _dayTemperatureKelvin;
@@ -83,9 +88,11 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         DisplayCoordinator coordinator,
         AutomationService automation,
         IGammaRangeUnlock gammaRange,
+        IAutoStartService autoStart,
         IAppPaths paths,
         ILogger<ControlPanelViewModel> logger)
     {
+        _autoStart = autoStart;
         _settingsStore = settingsStore;
         _displayEnumerator = displayEnumerator;
         _coordinator = coordinator;
@@ -112,6 +119,12 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         _longitudeText = schedule.Longitude?.ToString("0.####", CultureInfo.InvariantCulture) ?? string.Empty;
         _sunriseText = schedule.ManualSunrise.ToString("HH\\:mm", CultureInfo.InvariantCulture);
         _sunsetText = schedule.ManualSunset.ToString("HH\\:mm", CultureInfo.InvariantCulture);
+
+        // The registry is the source of truth for this, not the settings file:
+        // the user can remove the entry from Task Manager's startup tab without
+        // Redture ever hearing about it, and a switch showing the wrong state
+        // would be worse than no switch.
+        _startWithSystem = autoStart.IsEnabled;
 
         _automation.StateChanged += (_, _) => RefreshScheduleStatus();
 
@@ -366,6 +379,38 @@ public sealed partial class ControlPanelViewModel : ObservableObject
 
         OnPropertyChanged(nameof(IsTemperatureManual));
         RefreshScheduleStatus();
+    }
+
+    /// <summary>Whether starting at logon is even possible here.</summary>
+    public bool CanStartWithSystem => _autoStart.IsSupported;
+
+    partial void OnStartWithSystemChanged(bool value)
+    {
+        if (_suppressPersist)
+        {
+            return;
+        }
+
+        // Reflect what actually happened rather than what was asked for: if the
+        // registry write fails, the switch must go back.
+        bool applied = _autoStart.SetEnabled(value);
+
+        if (!applied)
+        {
+            _suppressPersist = true;
+            try
+            {
+                StartWithSystem = _autoStart.IsEnabled;
+            }
+            finally
+            {
+                _suppressPersist = false;
+            }
+
+            return;
+        }
+
+        Persist(s => s.StartWithSystem = value);
     }
 
     partial void OnDayTemperatureKelvinChanged(int value) => PersistSchedule(s => s.DayTemperatureKelvin = value);

@@ -251,6 +251,17 @@
         </StackPanel>
       </Border>
 
+      <!-- Startup -->
+      <Border Classes="card" IsVisible="{Binding CanStartWithSystem}">
+        <StackPanel>
+          <ToggleSwitch IsChecked="{Binding StartWithSystem}"
+                        OnContent="Starts with Windows"
+                        OffContent="Does not start with Windows" />
+          <TextBlock Classes="hint"
+                     Text="Registered per user, with no arguments, so a launch at sign-in goes straight to the tray without opening this panel. It appears in Task Manager's startup tab like anything else." />
+        </StackPanel>
+      </Border>
+
       <!-- Detected displays -->
       <Border Classes="card">
         <StackPanel>

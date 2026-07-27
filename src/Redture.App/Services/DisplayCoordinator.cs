@@ -42,6 +42,7 @@ public sealed class DisplayCoordinator : IDisposable
     private readonly IGammaController _gamma;
     private readonly ColorConflictMonitor _conflicts;
     private readonly ISystemEvents _systemEvents;
+    private readonly IFullscreenDetector _fullscreen;
     private readonly CleanShutdownSentinel _sentinel;
     private readonly ILogger<DisplayCoordinator> _logger;
 
@@ -73,9 +74,11 @@ public sealed class DisplayCoordinator : IDisposable
         IGammaController gamma,
         ColorConflictMonitor conflicts,
         ISystemEvents systemEvents,
+        IFullscreenDetector fullscreen,
         CleanShutdownSentinel sentinel,
         ILogger<DisplayCoordinator> logger)
     {
+        _fullscreen = fullscreen;
         _settingsStore = settingsStore;
         _overlay = overlay;
         _hardware = hardware;
@@ -170,6 +173,9 @@ public sealed class DisplayCoordinator : IDisposable
 
         _conflicts.ConflictDetected += (_, _) => ExternalStateChanged?.Invoke(this, EventArgs.Empty);
 
+        _fullscreen.FullscreenStateChanged += OnFullscreenStateChanged;
+        _fullscreen.Start();
+
         // A gamma ramp survives the process that set it. If the previous run
         // was killed, the display may still be carrying its tint with nothing
         // left to explain it, so clear the slate before applying anything.
@@ -224,6 +230,17 @@ public sealed class DisplayCoordinator : IDisposable
         // Only worth watching for a conflict while Redture is actually asking
         // for a tint: with a neutral ramp there is nothing to be overwritten.
         _conflicts.SetTintApplied(temperature != AppSettings.NeutralTemperatureKelvin);
+
+        // An application owning the screen sits below nothing: the overlay would
+        // not be visible over it, and competing for z-order with a game produces
+        // exactly the flicker this design avoids everywhere else. The gamma ramp
+        // above is still worth setting — it costs nothing, and some fullscreen
+        // applications leave it alone.
+        if (_fullscreen.IsFullscreenActive)
+        {
+            _overlay.SetOpacity(0d);
+            return;
+        }
 
         BrightnessPlan plan = BrightnessMapper.Map(
             settings.Brightness,
@@ -370,6 +387,31 @@ public sealed class DisplayCoordinator : IDisposable
     }
 
     /// <summary>
+    /// Stands down while an application owns the screen, and puts everything
+    /// back when it lets go.
+    /// </summary>
+    private void OnFullscreenStateChanged(object? sender, bool isFullscreen)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (!isFullscreen)
+            {
+                // A fullscreen application will usually have claimed the gamma
+                // ramp on its way in and not handed it back, so the cached
+                // belief about what the driver holds is worthless here.
+                _gamma.Refresh();
+            }
+
+            Apply();
+        });
+    }
+
+    /// <summary>
     /// Returns the screen to a neutral state. This is the guarantee that a user
     /// who dims to near-black can always get back — it must work even if the
     /// control panel is unreachable behind the overlay.
@@ -412,6 +454,8 @@ public sealed class DisplayCoordinator : IDisposable
         _systemEvents.DisplaysChanged -= OnDisplaysChanged;
         _systemEvents.SessionResumed -= OnSessionResumed;
         _systemEvents.PanicRequested -= OnPanicRequested;
+        _fullscreen.FullscreenStateChanged -= OnFullscreenStateChanged;
+        _fullscreen.Dispose();
 
         _conflicts.Dispose();
 

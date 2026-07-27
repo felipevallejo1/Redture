@@ -53,7 +53,7 @@ internal static class Program
 
             InstallCrashHandlers();
 
-            services = AppServices.Build(paths, StartupOptions.Parse(args));
+            services = AppServices.Build(paths, StartupOptions.Parse(args), instance);
             services.GetRequiredService<CleanShutdownSentinel>().BeginRun();
 
             // Settings must be on disk-loaded before the UI binds to them, so

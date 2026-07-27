@@ -17,10 +17,16 @@ internal static class Advapi32
 {
     internal static readonly nint HkeyLocalMachine = unchecked((nint)0x80000002);
 
+    internal static readonly nint HkeyCurrentUser = unchecked((nint)0x80000001);
+
     internal const uint KeyRead = 0x20019;
     internal const uint KeyWrite = 0x20006;
+    internal const uint RegString = 1;
     internal const uint RegDword = 4;
     internal const int ErrorSuccess = 0;
+
+    /// <summary><c>ERROR_FILE_NOT_FOUND</c>: the value is simply not there.</summary>
+    internal const int ErrorFileNotFound = 2;
 
     [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = false)]
     internal static extern int RegOpenKeyExW(
@@ -59,6 +65,36 @@ internal static class Advapi32
         uint valueType,
         ref uint data,
         uint dataSize);
+
+    /// <summary>
+    /// Reads a value into a raw buffer. Used for strings, which the DWORD
+    /// overload above cannot express.
+    /// </summary>
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = false)]
+    internal static extern int RegQueryValueExW(
+        nint hKey,
+        string valueName,
+        nint reserved,
+        out uint valueType,
+        [Out] byte[]? data,
+        ref uint dataSize);
+
+    /// <summary>
+    /// Writes a string value. <paramref name="dataSize"/> is in <em>bytes</em>
+    /// and must include the terminating null, so it is
+    /// <c>(text.Length + 1) * sizeof(char)</c>.
+    /// </summary>
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = false)]
+    internal static extern int RegSetValueExW(
+        nint hKey,
+        string valueName,
+        uint reserved,
+        uint valueType,
+        [MarshalAs(UnmanagedType.LPWStr)] string data,
+        uint dataSize);
+
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = false)]
+    internal static extern int RegDeleteValueW(nint hKey, string valueName);
 
     [DllImport("advapi32.dll")]
     internal static extern int RegCloseKey(nint hKey);

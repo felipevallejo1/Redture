@@ -8,6 +8,7 @@ using Redture.Platform.Abstractions.Brightness;
 using Redture.Platform.Abstractions.Displays;
 using Redture.Platform.Abstractions.Gamma;
 using Redture.Platform.Abstractions.Overlay;
+using Redture.Platform.Abstractions.Startup;
 using Redture.Platform.Abstractions.SystemEvents;
 using Redture.Platform.Windows;
 using Serilog;
@@ -20,9 +21,11 @@ namespace Redture.App.Infrastructure;
 /// </summary>
 internal static class AppServices
 {
-    public static ServiceProvider Build(IAppPaths paths, StartupOptions startupOptions)
+    public static ServiceProvider Build(IAppPaths paths, StartupOptions startupOptions, SingleInstanceGuard instance)
     {
         ServiceCollection services = new();
+
+        services.AddSingleton(instance);
 
         // Reuse the paths instance created during logging bootstrap rather than
         // letting Core build a second one.
@@ -75,5 +78,7 @@ internal static class AppServices
         services.AddSingleton<IColorConflictDetector, NullColorConflictDetector>();
         services.AddSingleton<IGammaRangeUnlock, NullGammaRangeUnlock>();
         services.AddSingleton<ISystemEvents, NullSystemEvents>();
+        services.AddSingleton<IFullscreenDetector, NullFullscreenDetector>();
+        services.AddSingleton<IAutoStartService, NullAutoStartService>();
     }
 }

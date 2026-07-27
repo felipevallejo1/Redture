@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Redture.App.Infrastructure;
 using Redture.App.Services;
@@ -51,6 +52,12 @@ public sealed partial class App : Application
                 _services.GetRequiredService<ApplicationLifecycle>().ShutdownForSessionEnd();
 
             _services.GetRequiredService<TrayIconService>().Initialize();
+
+            // Launching Redture again while it is running should bring the
+            // panel up rather than appear to do nothing.
+            ControlPanelPresenter presenter = _services.GetRequiredService<ControlPanelPresenter>();
+            _services.GetRequiredService<SingleInstanceGuard>().ActivationRequested +=
+                (_, _) => Dispatcher.UIThread.Post(presenter.Show);
 
             if (_services.GetRequiredService<StartupOptions>().ShowPanelOnStart)
             {

@@ -196,4 +196,43 @@ internal static class User32
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool UnregisterHotKey(nint hWnd, int id);
+
+    // --- Accessibility event hooks ------------------------------------------
+
+    /// <summary><c>EVENT_SYSTEM_FOREGROUND</c>.</summary>
+    internal const uint EventSystemForeground = 0x0003;
+
+    /// <summary>
+    /// <c>WINEVENT_OUTOFCONTEXT</c>: deliver events by posting to our own
+    /// thread rather than injecting a DLL into every process on the desktop.
+    /// </summary>
+    internal const uint WinEventOutOfContext = 0x0000;
+
+    [DllImport("user32.dll")]
+    internal static extern nint SetWinEventHook(
+        uint eventMin,
+        uint eventMax,
+        nint moduleHandle,
+        WinEventProcedure callback,
+        uint processId,
+        uint threadId,
+        uint flags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool UnhookWinEvent(nint hookHandle);
 }
+
+/// <summary>
+/// Callback for <see cref="User32.SetWinEventHook"/>. Like a window procedure,
+/// the delegate must be rooted for as long as the hook is installed.
+/// </summary>
+[UnmanagedFunctionPointer(CallingConvention.Winapi)]
+internal delegate void WinEventProcedure(
+    nint hookHandle,
+    uint eventType,
+    nint windowHandle,
+    int objectId,
+    int childId,
+    uint eventThreadId,
+    uint eventTimeMilliseconds);
