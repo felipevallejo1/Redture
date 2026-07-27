@@ -142,6 +142,12 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     {
         get
         {
+            IReadOnlyList<string> hdrDisplays = _coordinator.DisplaysIgnoringColorTemperature;
+            if (hdrDisplays.Count > 0)
+            {
+                return $"{string.Join(", ", hdrDisplays)} is in HDR mode. Windows ignores gamma ramps there, so colour temperature has no effect on it. Turning HDR off restores it.";
+            }
+
             if (!_coordinator.ColorTemperatureSupported)
             {
                 return "No display accepted a colour lookup table, so colour temperature cannot be applied on this machine.";

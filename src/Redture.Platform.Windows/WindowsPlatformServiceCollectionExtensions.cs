@@ -29,6 +29,7 @@ public static class WindowsPlatformServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IDisplayEnumerator, WindowsDisplayEnumerator>();
+        services.AddSingleton<IHdrDetector, WindowsHdrDetector>();
         services.AddSingleton<IOverlayController, WindowsOverlayController>();
         services.AddSingleton<IHardwareBrightnessController, WindowsHardwareBrightnessController>();
         services.AddSingleton<IGammaController, WindowsGammaController>();

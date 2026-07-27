@@ -35,6 +35,17 @@ public interface IGammaController : IDisposable
     bool LastRampRejected { get; }
 
     /// <summary>
+    /// Names of displays where a ramp is accepted and then has no effect,
+    /// because they are running in HDR mode.
+    /// </summary>
+    /// <remarks>
+    /// Worth reporting separately from a rejection: a refusal is at least
+    /// visible in a return code, whereas this looks like complete success from
+    /// every angle except the user's eyes.
+    /// </remarks>
+    IReadOnlyList<string> DisplaysIgnoringGamma { get; }
+
+    /// <summary>
     /// Applies a ramp to every attached display. Sending a ramp identical to
     /// the one already applied is a no-op, which is the main defence against
     /// the flicker this class of tool is known for.

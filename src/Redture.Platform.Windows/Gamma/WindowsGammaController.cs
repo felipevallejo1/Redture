@@ -29,7 +29,17 @@ namespace Redture.Platform.Windows.Gamma;
 public sealed class WindowsGammaController : IGammaController
 {
     private readonly IDisplayEnumerator _displayEnumerator;
+    private readonly IHdrDetector _hdrDetector;
     private readonly ILogger<WindowsGammaController> _logger;
+
+    /// <summary>
+    /// Displays where a ramp would be accepted and then ignored. Cached rather
+    /// than queried per write: the state only changes when the display
+    /// configuration does, which is exactly when <see cref="Refresh"/> runs.
+    /// </summary>
+    private IReadOnlySet<string> _hdrDisplays = new HashSet<string>();
+
+    private bool _hdrChecked;
 
     /// <summary>
     /// Ramp currently believed to be loaded, or null when that belief is not
@@ -45,15 +55,23 @@ public sealed class WindowsGammaController : IGammaController
 
     public WindowsGammaController(
         IDisplayEnumerator displayEnumerator,
+        IHdrDetector hdrDetector,
         ILogger<WindowsGammaController> logger)
     {
         _displayEnumerator = displayEnumerator;
+        _hdrDetector = hdrDetector;
         _logger = logger;
     }
 
     public bool IsSupported { get; private set; } = true;
 
     public bool LastRampRejected { get; private set; }
+
+    /// <summary>
+    /// Displays that are in HDR mode, where a gamma ramp is accepted and then
+    /// silently ignored.
+    /// </summary>
+    public IReadOnlyList<string> DisplaysIgnoringGamma { get; private set; } = [];
 
     public void Apply(GammaRamp ramp)
     {
@@ -87,6 +105,11 @@ public sealed class WindowsGammaController : IGammaController
         // a session unlock or a secure-desktop prompt without telling anyone,
         // so the cached value is exactly what must not be trusted here.
         _appliedRamp = null;
+
+        // HDR can be toggled per display at any time, and the only signals that
+        // it happened are the same ones that bring us here.
+        _hdrChecked = false;
+
         Write(_requestedRamp);
     }
 
@@ -149,13 +172,26 @@ public sealed class WindowsGammaController : IGammaController
 
     private void Write(GammaRamp ramp)
     {
+        EnsureHdrStateKnown();
+
         IReadOnlyList<DisplayInfo> displays = _displayEnumerator.GetDisplays();
 
         int applied = 0;
         int rejected = 0;
+        int ignored = 0;
+        List<string> hdrDisplays = [];
 
         foreach (DisplayInfo display in displays)
         {
+            if (_hdrDisplays.Contains(display.Id))
+            {
+                // Writing here would report success and change nothing. Skipping
+                // it keeps the "did this work" bookkeeping honest.
+                ignored++;
+                hdrDisplays.Add(display.Name);
+                continue;
+            }
+
             if (TryWriteTo(display, ramp))
             {
                 applied++;
@@ -166,12 +202,20 @@ public sealed class WindowsGammaController : IGammaController
             }
         }
 
+        DisplaysIgnoringGamma = hdrDisplays;
         LastRampRejected = rejected > 0;
-        IsSupported = applied > 0 || displays.Count == 0;
+        IsSupported = applied > 0 || displays.Count == ignored;
 
         // Only claim the driver holds this ramp if it actually took everywhere;
         // a partial write must be retried, not cached.
         _appliedRamp = rejected == 0 && applied > 0 ? ramp : null;
+
+        if (ignored > 0)
+        {
+            _logger.LogDebug(
+                "{Ignored} display(s) skipped because they are in HDR mode, where gamma ramps have no effect.",
+                ignored);
+        }
 
         if (rejected > 0)
         {
@@ -180,6 +224,21 @@ public sealed class WindowsGammaController : IGammaController
                 rejected,
                 displays.Count);
         }
+    }
+
+    /// <summary>
+    /// Populates the HDR display set on first use, and after anything that
+    /// could have changed it.
+    /// </summary>
+    private void EnsureHdrStateKnown()
+    {
+        if (_hdrChecked)
+        {
+            return;
+        }
+
+        _hdrChecked = true;
+        _hdrDisplays = _hdrDetector.FindHdrDisplays();
     }
 
     private bool TryWriteTo(DisplayInfo display, GammaRamp ramp)

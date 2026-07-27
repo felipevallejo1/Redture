@@ -67,6 +67,7 @@ internal static class AppServices
         // Linux (stage 5) and macOS (stage 6) fall back to no-op backends so
         // the app still starts and can explain what is unavailable.
         services.AddSingleton<IDisplayEnumerator, UnsupportedDisplayEnumerator>();
+        services.AddSingleton<IHdrDetector, NullHdrDetector>();
         services.AddSingleton<IOverlayController, NullOverlayController>();
         services.AddSingleton<IHardwareBrightnessController, NullHardwareBrightnessController>();
         services.AddSingleton<IGammaController, NullGammaController>();

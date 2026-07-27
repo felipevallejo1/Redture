@@ -72,6 +72,15 @@ next round and lose the one after, turning a static conflict into a visible
 ping-pong. Reporting it once and stepping back leaves a stable screen and an
 explanation the user can act on.
 
+### Failing loudly instead of silently
+
+On a display in HDR mode, loading a gamma ramp **succeeds and does nothing**.
+The call returns success, the driver stores the table, and the picture never
+changes. There is no way to tell that apart from working correctly by looking
+at return codes alone, so Redture asks the display configuration API directly
+and says which displays it cannot affect — rather than leaving a slider that
+appears to work.
+
 ## Status
 
 Built in stages, each one shippable on its own.
@@ -82,8 +91,8 @@ Built in stages, each one shippable on its own.
 | 1 | Dimming overlay (Windows), multi-monitor, capture exclusion, panic hotkey | ✅ done |
 | 1.5 | Real backlight control (DDC/CI + WMI), unified two-segment slider | ✅ done |
 | 2 | Colour temperature via gamma ramp, conflict detection, gamma-range opt-in | ✅ done |
-| 2.5 | HDR detection, so the tint fails loudly instead of silently | ⬜ next |
-| 3 | Time-of-day automation, profiles, manual overrides | ⬜ |
+| 2.5 | HDR detection, so the tint fails loudly instead of silently | ✅ done |
+| 3 | Time-of-day automation, profiles, manual overrides | ⬜ next |
 | 4 | Auto-start, global hotkeys, fullscreen detection, polish | ⬜ |
 | 5 | Linux backend (X11 + wlroots) | ⬜ |
 | 6 | macOS backend, packaging, release | ⬜ |

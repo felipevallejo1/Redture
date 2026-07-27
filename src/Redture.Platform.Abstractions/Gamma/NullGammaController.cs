@@ -22,6 +22,8 @@ public sealed class NullGammaController : IGammaController
 
     public bool LastRampRejected => false;
 
+    public IReadOnlyList<string> DisplaysIgnoringGamma => [];
+
     public void Apply(GammaRamp ramp)
     {
     }

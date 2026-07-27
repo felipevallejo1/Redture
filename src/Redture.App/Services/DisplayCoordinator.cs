@@ -103,6 +103,9 @@ public sealed class DisplayCoordinator : IDisposable
     /// </summary>
     public bool ColorTemperatureRejected => _gamma.LastRampRejected;
 
+    /// <summary>Displays where HDR makes the gamma ramp a no-op.</summary>
+    public IReadOnlyList<string> DisplaysIgnoringColorTemperature => _gamma.DisplaysIgnoringGamma;
+
     /// <summary>
     /// Message describing another application fighting over the colour lookup
     /// table, or null while nothing has been observed.
