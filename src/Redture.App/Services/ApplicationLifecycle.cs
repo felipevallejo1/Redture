@@ -64,16 +64,12 @@ public sealed class ApplicationLifecycle
             _logger.LogError(ex, "Failed to flush settings during shutdown.");
         }
 
-        // From here on the run counts as clean, even if closing windows throws.
+        // From here on the run counts as clean, even if tearing down throws.
         _sentinel.EndRun();
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            // Corrections come off the screen before any window closes: window
-            // handles belong to this thread, and the overlay must not outlive
-            // the message loop that owns it.
-            _coordinator.Dispose();
-            _presenter.PrepareForShutdown();
+            TearDown();
 
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
@@ -84,5 +80,60 @@ public sealed class ApplicationLifecycle
                 Environment.Exit(0);
             }
         });
+    }
+
+    /// <summary>
+    /// Shutdown path for a Windows log-off, restart or power-off.
+    /// </summary>
+    /// <remarks>
+    /// Synchronous on purpose: the OS gives an application a short, unwaited
+    /// window to tidy up and then kills it. Handing control back to an async
+    /// continuation would mean the process is gone before the continuation
+    /// runs, which is precisely how a clean log-off ends up looking like a
+    /// crash on the next boot.
+    /// <para>
+    /// Must be called on the UI thread, which is where the lifetime raises the
+    /// event. It deliberately does not ask the lifetime to shut down — the OS
+    /// is already doing that.
+    /// </para>
+    /// </remarks>
+    public void ShutdownForSessionEnd()
+    {
+        if (Interlocked.Exchange(ref _shutdownStarted, 1) != 0)
+        {
+            return;
+        }
+
+        _logger.LogInformation("The OS is ending the session; running the shutdown sequence synchronously.");
+
+        try
+        {
+            _settingsStore.FlushAsync().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to flush settings during session end.");
+        }
+
+        _sentinel.EndRun();
+        TearDown();
+    }
+
+    /// <summary>
+    /// Removes every correction from the screen and releases the OS resources
+    /// backing them. Runs on the UI thread: window handles belong to the thread
+    /// that created them, and the overlay must not outlive its message loop.
+    /// </summary>
+    private void TearDown()
+    {
+        try
+        {
+            _coordinator.Dispose();
+            _presenter.PrepareForShutdown();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to tear down display corrections.");
+        }
     }
 }

@@ -43,6 +43,12 @@ public sealed partial class App : Application
             // on screen by the time the user can interact with anything.
             _services.GetRequiredService<DisplayCoordinator>().Start();
 
+            // A log-off or power-off must not look like a crash on the next
+            // boot, so the session-end path runs the same teardown the tray's
+            // Exit item does.
+            desktop.ShutdownRequested += (_, _) =>
+                _services.GetRequiredService<ApplicationLifecycle>().ShutdownForSessionEnd();
+
             _services.GetRequiredService<TrayIconService>().Initialize();
 
             if (_services.GetRequiredService<StartupOptions>().ShowPanelOnStart)
