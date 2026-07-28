@@ -160,6 +160,14 @@ public sealed class AppStrings
 
     public required string LessThanAMinute { get; init; }
 
+    public required string SuspendFullscreenOn { get; init; }
+
+    public required string SuspendFullscreenOff { get; init; }
+
+    public required string FullscreenActive { get; init; }
+
+    public required string FullscreenIdle { get; init; }
+
     // --- Startup --------------------------------------------------------
     public required string StartupOn { get; init; }
 
@@ -278,6 +286,10 @@ public sealed class AppStrings
         HoursMinutesShort = "{0} h {1} min",
         LessThanAMinute = "less than a minute",
 
+        SuspendFullscreenOn = "Pauses dimming in fullscreen apps",
+        SuspendFullscreenOff = "Keeps dimming in fullscreen apps",
+        FullscreenActive = "An app currently owns the screen, so dimming is paused.",
+        FullscreenIdle = "No fullscreen app is running.",
         StartupOn = "Starts with Windows",
         StartupOff = "Does not start with Windows",
         StartupHint =
@@ -392,6 +404,10 @@ public sealed class AppStrings
         HoursMinutesShort = "{0} h {1} min",
         LessThanAMinute = "menos de un minuto",
 
+        SuspendFullscreenOn = "Pausa el oscurecimiento en pantalla completa",
+        SuspendFullscreenOff = "Mantiene el oscurecimiento en pantalla completa",
+        FullscreenActive = "Una aplicación tiene la pantalla completa, así que el oscurecimiento está pausado.",
+        FullscreenIdle = "No hay ninguna aplicación en pantalla completa.",
         StartupOn = "Arranca con Windows",
         StartupOff = "No arranca con Windows",
         StartupHint =

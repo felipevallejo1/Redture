@@ -8,27 +8,60 @@ namespace Redture.Platform.Windows.SystemEvents;
 /// <inheritdoc cref="IFullscreenDetector" />
 /// <remarks>
 /// <para>
-/// Driven by a foreground-change hook rather than a timer. Entering or leaving
-/// a fullscreen application changes which window is in front, so the one event
-/// that matters is already being broadcast — polling would burn cycles for
-/// weeks to catch a transition that announces itself.
+/// Decides by inspecting the foreground window: which process owns it, what
+/// class it is, and whether its rectangle covers the monitor it sits on.
 /// </para>
 /// <para>
-/// The hook only wakes the detector up; the actual question is put to the shell
-/// via <c>SHQueryUserNotificationState</c>. Measuring a window's rectangle
-/// against the monitor's is the obvious alternative and a poor one — it counts
-/// every maximised borderless window, and every wallpaper host, as fullscreen.
+/// The obvious alternative, <c>SHQueryUserNotificationState</c>, cannot be used
+/// on its own here and the reason is worth recording. Its
+/// <c>QUNS_RUNNING_D3D_FULL_SCREEN</c> state only covers exclusive-mode
+/// Direct3D, which almost nothing uses any more; borderless fullscreen reports
+/// <c>QUNS_BUSY</c> instead. But <c>QUNS_BUSY</c> is also what Redture's own
+/// dimming overlay produces — it is, after all, a borderless window the size of
+/// the screen. Acting on it made the overlay hide itself, which cleared the
+/// state, which made it show itself again: measured at fifteen transitions in
+/// forty seconds. Precisely the flicker this project exists to avoid.
+/// </para>
+/// <para>
+/// The foreground-window test has the property that matters: it can tell whose
+/// window it is looking at, and ignore our own. The shell query is still
+/// consulted for the two states our overlay cannot possibly cause.
 /// </para>
 /// </remarks>
 [SupportedOSPlatform("windows")]
 public sealed class WindowsFullscreenDetector : IFullscreenDetector
 {
-    private readonly ILogger<WindowsFullscreenDetector> _logger;
+    /// <summary>
+    /// Backstop interval. The foreground hook catches alt-tabbing into a game,
+    /// but a window that goes fullscreen in place — a browser on F11, a video
+    /// player expanding — never changes which window is in front, so no event
+    /// is raised at all.
+    /// </summary>
+    /// <remarks>
+    /// The one timer in the application that runs regardless of state, kept
+    /// because the alternative is a feature that works for some ways of going
+    /// fullscreen and not others. Two local calls every two seconds.
+    /// </remarks>
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
 
-    /// <summary>Rooted for the lifetime of the hook; see <see cref="WinEventProcedure"/>.</summary>
+    /// <summary>
+    /// Windows that are always the size of the screen and never mean fullscreen:
+    /// the desktop itself, its wallpaper host, and the taskbar.
+    /// </summary>
+    private static readonly string[] ShellClassNames =
+    [
+        "Progman",
+        "WorkerW",
+        "Shell_TrayWnd",
+    ];
+
+    private readonly ILogger<WindowsFullscreenDetector> _logger;
     private readonly WinEventProcedure _callback;
+    private readonly CancellationTokenSource _shutdown = new();
+    private readonly uint _ownProcessId = (uint)Environment.ProcessId;
 
     private nint _hook;
+    private Task? _poll;
     private bool _started;
     private bool _disposed;
 
@@ -64,15 +97,34 @@ public sealed class WindowsFullscreenDetector : IFullscreenDetector
 
         if (_hook == 0)
         {
-            _logger.LogWarning(
-                "Could not install the foreground hook; the overlay will not stand down for fullscreen applications.");
-            return;
+            _logger.LogWarning("Could not install the foreground hook; falling back to polling alone.");
         }
 
-        // Establish the starting answer: Redture may well have been launched
-        // while something was already fullscreen.
         Evaluate();
+        _poll = Task.Run(PollAsync);
+
         _logger.LogInformation("Fullscreen detection active (currently {State}).", IsFullscreenActive);
+    }
+
+    private async Task PollAsync()
+    {
+        try
+        {
+            using PeriodicTimer timer = new(PollInterval);
+
+            while (await timer.WaitForNextTickAsync(_shutdown.Token).ConfigureAwait(false))
+            {
+                Evaluate();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal shutdown.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "The fullscreen poll stopped unexpectedly.");
+        }
     }
 
     private void OnForegroundChanged(
@@ -98,12 +150,7 @@ public sealed class WindowsFullscreenDetector : IFullscreenDetector
 
     private void Evaluate()
     {
-        if (Shell32.SHQueryUserNotificationState(out int state) != 0)
-        {
-            return;
-        }
-
-        bool fullscreen = state is Shell32.RunningFullScreenDirect3D or Shell32.PresentationMode;
+        bool fullscreen = ForegroundWindowCoversAMonitor() || ShellReportsExclusiveFullscreen();
 
         if (fullscreen == IsFullscreenActive)
         {
@@ -119,6 +166,83 @@ public sealed class WindowsFullscreenDetector : IFullscreenDetector
         FullscreenStateChanged?.Invoke(this, fullscreen);
     }
 
+    /// <summary>
+    /// Whether the window in front belongs to somebody else and fills the
+    /// monitor it is on.
+    /// </summary>
+    private bool ForegroundWindowCoversAMonitor()
+    {
+        nint foreground = User32.GetForegroundWindow();
+        if (foreground == 0)
+        {
+            return false;
+        }
+
+        // The check that makes this approach work at all: Redture's own overlay
+        // is a borderless window covering the screen, and reacting to it would
+        // make the overlay switch itself on and off forever.
+        User32.GetWindowThreadProcessId(foreground, out uint processId);
+        if (processId == _ownProcessId)
+        {
+            return false;
+        }
+
+        if (IsShellWindow(foreground))
+        {
+            return false;
+        }
+
+        if (!User32.GetWindowRect(foreground, out Rect window))
+        {
+            return false;
+        }
+
+        nint monitor = User32.MonitorFromWindow(foreground, User32.MonitorDefaultToNearest);
+        if (monitor == 0)
+        {
+            return false;
+        }
+
+        MonitorInfo info = new() { cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<MonitorInfo>() };
+        if (!User32.GetMonitorInfoW(monitor, ref info))
+        {
+            return false;
+        }
+
+        // Covers rather than equals: a fullscreen window is sometimes a pixel
+        // larger than the monitor, and comparing for equality misses those.
+        return window.Left <= info.Monitor.Left
+            && window.Top <= info.Monitor.Top
+            && window.Right >= info.Monitor.Right
+            && window.Bottom >= info.Monitor.Bottom;
+    }
+
+    private static bool IsShellWindow(nint window)
+    {
+        char[] buffer = new char[64];
+        int length = User32.GetClassNameW(window, buffer, buffer.Length);
+
+        if (length <= 0)
+        {
+            return false;
+        }
+
+        string className = new(buffer, 0, length);
+        return Array.Exists(ShellClassNames, name => string.Equals(name, className, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The two shell states Redture's own overlay cannot produce: exclusive
+    /// Direct3D, and the user explicitly turning on presentation mode.
+    /// </summary>
+    /// <remarks>
+    /// <c>QUNS_BUSY</c> is deliberately not consulted. It is the state a
+    /// borderless fullscreen window produces, and our overlay is one.
+    /// </remarks>
+    private static bool ShellReportsExclusiveFullscreen() =>
+        Shell32.SHQueryUserNotificationState(out int state) == 0
+        && state is Shell32.RunningFullScreenDirect3D or Shell32.PresentationMode;
+
     public void Dispose()
     {
         if (_disposed)
@@ -127,11 +251,14 @@ public sealed class WindowsFullscreenDetector : IFullscreenDetector
         }
 
         _disposed = true;
+        _shutdown.Cancel();
 
         if (_hook != 0)
         {
             User32.UnhookWinEvent(_hook);
             _hook = 0;
         }
+
+        _shutdown.Dispose();
     }
 }

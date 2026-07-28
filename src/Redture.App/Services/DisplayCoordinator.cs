@@ -144,6 +144,9 @@ public sealed class DisplayCoordinator : IDisposable
         });
     }
 
+    /// <summary>Whether an application currently owns the whole screen.</summary>
+    public bool IsFullscreenActive => _fullscreen.IsFullscreenActive;
+
     /// <summary>Whether another application has been seen overwriting the LUT.</summary>
     public bool HasColorConflict => _conflicts.HasConflict;
 
@@ -232,11 +235,11 @@ public sealed class DisplayCoordinator : IDisposable
         _conflicts.SetTintApplied(temperature != AppSettings.NeutralTemperatureKelvin);
 
         // An application owning the screen sits below nothing: the overlay would
-        // not be visible over it, and competing for z-order with a game produces
-        // exactly the flicker this design avoids everywhere else. The gamma ramp
-        // above is still worth setting — it costs nothing, and some fullscreen
-        // applications leave it alone.
-        if (_fullscreen.IsFullscreenActive)
+        // not be visible over exclusive fullscreen, and competing for z-order
+        // with a game produces exactly the flicker this design avoids
+        // everywhere else. The gamma ramp above is still applied — it costs
+        // nothing, and some fullscreen applications leave it alone.
+        if (settings.SuspendOverlayInFullscreen && _fullscreen.IsFullscreenActive)
         {
             _overlay.SetOpacity(0d);
             return;
@@ -408,6 +411,10 @@ public sealed class DisplayCoordinator : IDisposable
             }
 
             Apply();
+
+            // So the panel can say whether it is standing down right now, which
+            // is the only way to tell this feature is working at all.
+            ExternalStateChanged?.Invoke(this, EventArgs.Empty);
         });
     }
 

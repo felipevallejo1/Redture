@@ -197,6 +197,28 @@ internal static class User32
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool UnregisterHotKey(nint hWnd, int id);
 
+    // --- Foreground window inspection ---------------------------------------
+
+    [DllImport("user32.dll")]
+    internal static extern nint GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    internal static extern uint GetWindowThreadProcessId(nint hWnd, out uint processId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    internal static extern int GetClassNameW(nint hWnd, [Out] char[] className, int maxCount);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetWindowRect(nint hWnd, out Rect rect);
+
+    [DllImport("user32.dll")]
+    internal static extern nint MonitorFromWindow(nint hWnd, uint flags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetMonitorInfoW(nint monitor, ref MonitorInfo info);
+
     // --- Accessibility event hooks ------------------------------------------
 
     /// <summary><c>EVENT_SYSTEM_FOREGROUND</c>.</summary>

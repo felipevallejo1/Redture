@@ -41,6 +41,34 @@ internal struct WindowClassEx
     public nint hIconSm;
 }
 
+/// <summary>Win32 <c>RECT</c>.</summary>
+[StructLayout(LayoutKind.Sequential)]
+[SupportedOSPlatform("windows")]
+internal struct Rect
+{
+    public int Left;
+    public int Top;
+    public int Right;
+    public int Bottom;
+
+    public readonly int Width => Right - Left;
+
+    public readonly int Height => Bottom - Top;
+}
+
+/// <summary>Win32 <c>MONITORINFO</c>. Size 40.</summary>
+[StructLayout(LayoutKind.Sequential)]
+[SupportedOSPlatform("windows")]
+internal struct MonitorInfo
+{
+    /// <summary>Must be set to <c>sizeof(MONITORINFO)</c> before the call.</summary>
+    public uint cbSize;
+
+    public Rect Monitor;
+    public Rect WorkArea;
+    public uint Flags;
+}
+
 /// <summary>Win32 <c>POINTL</c> / <c>POINT</c>.</summary>
 [StructLayout(LayoutKind.Sequential)]
 [SupportedOSPlatform("windows")]

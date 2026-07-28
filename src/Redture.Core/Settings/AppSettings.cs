@@ -95,6 +95,19 @@ public sealed class AppSettings
     /// <summary>Whether Redture registers itself to start at logon.</summary>
     public bool StartWithSystem { get; set; }
 
+    /// <summary>
+    /// Whether the dimming overlay stands down while an application owns the
+    /// whole screen.
+    /// </summary>
+    /// <remarks>
+    /// On by default, because an overlay cannot appear above exclusive
+    /// fullscreen anyway and competing for z-order with a game causes flicker.
+    /// Worth being a choice rather than a rule: somebody watching a film at
+    /// night may well want the screen to stay dimmed, and borderless fullscreen
+    /// — which is most things now — can be covered perfectly well.
+    /// </remarks>
+    public bool SuspendOverlayInFullscreen { get; set; } = true;
+
     /// <summary>User-configurable cap on overlay opacity, clamped to
     /// <see cref="AbsoluteMaxOverlayOpacity"/>.</summary>
     public double MaxOverlayOpacity { get; set; } = 0.92d;

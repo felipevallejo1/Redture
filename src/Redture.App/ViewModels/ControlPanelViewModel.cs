@@ -66,6 +66,9 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     private bool _automationEnabled;
 
     [ObservableProperty]
+    private bool _suspendInFullscreen;
+
+    [ObservableProperty]
     private bool _startWithSystem;
 
     [ObservableProperty]
@@ -120,6 +123,7 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         _brightness = settings.Brightness;
         _temperatureKelvin = settings.TemperatureKelvin;
         _automationEnabled = settings.AutomationEnabled;
+        _suspendInFullscreen = settings.SuspendOverlayInFullscreen;
 
         ScheduleSettings schedule = settings.Schedule;
         _dayTemperatureKelvin = schedule.DayTemperatureKelvin;
@@ -439,6 +443,21 @@ public sealed partial class ControlPanelViewModel : ObservableObject
 
     partial void OnEffectsEnabledChanged(bool value) => Persist(s => s.EffectsEnabled = value);
 
+    partial void OnSuspendInFullscreenChanged(bool value)
+    {
+        Persist(s => s.SuspendOverlayInFullscreen = value);
+        OnPropertyChanged(nameof(FullscreenStatus));
+    }
+
+    /// <summary>
+    /// Says whether the overlay is standing down right now. Without it there is
+    /// no way to tell the feature works short of launching a game and staring
+    /// at the screen.
+    /// </summary>
+    public string FullscreenStatus => _coordinator.IsFullscreenActive
+        ? Strings.FullscreenActive
+        : Strings.FullscreenIdle;
+
     partial void OnBrightnessChanged(double value) => Persist(s => s.Brightness = value);
 
     partial void OnTemperatureKelvinChanged(int value)
@@ -642,6 +661,7 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         OnPropertyChanged(nameof(TemperatureStatus));
         OnPropertyChanged(nameof(ConflictWarning));
         OnPropertyChanged(nameof(HasConflict));
+        OnPropertyChanged(nameof(FullscreenStatus));
     }
 
 }
