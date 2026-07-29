@@ -33,6 +33,26 @@ public sealed class ColorConflictMonitor : IDisposable
     /// </summary>
     private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(15);
 
+    /// <summary>
+    /// How many times to put the ramp back before concluding that something is
+    /// genuinely fighting for it.
+    /// </summary>
+    /// <remarks>
+    /// The distinction this whole class turns on. A ramp that is overwritten
+    /// once and then left alone is not a conflict — it is a game resetting the
+    /// display on its way out, or a driver restoring its own state after a mode
+    /// change. Repairing that is correct. A ramp that keeps being taken back
+    /// after every repair is a conflict, and repairing that is a flicker loop.
+    /// Telling them apart takes an attempt, not a guess.
+    /// </remarks>
+    private const int RepairAttempts = 3;
+
+    /// <summary>
+    /// Window within which repeated repairs count as a fight rather than as
+    /// unrelated one-off events.
+    /// </summary>
+    private static readonly TimeSpan RepairWindow = TimeSpan.FromMinutes(2);
+
     private readonly IGammaController _gamma;
     private readonly IColorConflictDetector _detector;
     private readonly ILogger<ColorConflictMonitor> _logger;
@@ -41,6 +61,9 @@ public sealed class ColorConflictMonitor : IDisposable
     private Task? _loop;
     private volatile bool _tintApplied;
     private bool _disposed;
+
+    private int _repairsInWindow;
+    private DateTimeOffset _firstRepairAt = DateTimeOffset.MinValue;
 
     public ColorConflictMonitor(
         IGammaController gamma,
@@ -109,8 +132,13 @@ public sealed class ColorConflictMonitor : IDisposable
                         continue;
                     }
 
+                    if (TryRepair())
+                    {
+                        continue;
+                    }
+
                     Report();
-                    return; // Back off permanently rather than start a write war.
+                    return; // Back off rather than start a write war.
                 }
             }
             catch (OperationCanceledException)
@@ -122,6 +150,39 @@ public sealed class ColorConflictMonitor : IDisposable
                 _logger.LogError(ex, "The colour conflict monitor stopped unexpectedly.");
             }
         });
+    }
+
+    /// <summary>
+    /// Puts the ramp back, and reports whether it is worth continuing to watch.
+    /// </summary>
+    /// <returns>
+    /// True when the repair was made and monitoring should continue; false when
+    /// this has happened often enough to be a genuine conflict.
+    /// </returns>
+    private bool TryRepair()
+    {
+        DateTimeOffset now = DateTimeOffset.Now;
+
+        // Repairs spread far apart are unrelated incidents, not a fight. Only a
+        // burst of them means something is contesting the ramp.
+        if (now - _firstRepairAt > RepairWindow)
+        {
+            _repairsInWindow = 0;
+            _firstRepairAt = now;
+        }
+
+        if (++_repairsInWindow > RepairAttempts)
+        {
+            return false;
+        }
+
+        _logger.LogInformation(
+            "The colour lookup table was changed by something else; putting it back (repair {Count} of {Max}).",
+            _repairsInWindow,
+            RepairAttempts);
+
+        _gamma.Refresh();
+        return true;
     }
 
     private void Report()

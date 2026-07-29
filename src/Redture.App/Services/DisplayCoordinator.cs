@@ -402,20 +402,71 @@ public sealed class DisplayCoordinator : IDisposable
                 return;
             }
 
-            if (!isFullscreen)
-            {
-                // A fullscreen application will usually have claimed the gamma
-                // ramp on its way in and not handed it back, so the cached
-                // belief about what the driver holds is worthless here.
-                _gamma.Refresh();
-            }
-
             Apply();
 
             // So the panel can say whether it is standing down right now, which
             // is the only way to tell this feature is working at all.
             ExternalStateChanged?.Invoke(this, EventArgs.Empty);
+
+            if (!isFullscreen)
+            {
+                _ = ReassertGammaAsync();
+            }
         });
+    }
+
+    /// <summary>
+    /// Writes the colour ramp again after something else has had the display,
+    /// and keeps checking briefly that it stuck.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A single write on the way out is not enough. A fullscreen application
+    /// hands the display back over some hundreds of milliseconds, and anything
+    /// it does to the ramp during that window lands <em>after</em> the write —
+    /// leaving the screen showing one thing while the slider says another, with
+    /// nothing to correct it until the user happens to move a control.
+    /// </para>
+    /// <para>
+    /// Bounded on purpose. Three attempts over about a second is enough to
+    /// outlast a mode change and far too few to become a fight with a colour
+    /// tool that genuinely wants the ramp; that case belongs to
+    /// <see cref="ColorConflictMonitor"/>.
+    /// </para>
+    /// </remarks>
+    private async Task ReassertGammaAsync()
+    {
+        const int Attempts = 3;
+
+        try
+        {
+            for (int attempt = 1; attempt <= Attempts && !_disposed; attempt++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(350)).ConfigureAwait(false);
+
+                if (_gamma.Verify() != GammaVerification.Foreign)
+                {
+                    return;
+                }
+
+                _logger.LogInformation(
+                    "The colour ramp did not survive the return to the desktop; re-applying (attempt {Attempt} of {Total}).",
+                    attempt,
+                    Attempts);
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (!_disposed)
+                    {
+                        _gamma.Refresh();
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to re-apply the colour ramp after returning to the desktop.");
+        }
     }
 
     /// <summary>
