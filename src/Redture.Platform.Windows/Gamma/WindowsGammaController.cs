@@ -51,6 +51,13 @@ public sealed class WindowsGammaController : IGammaController
     /// <summary>Last ramp requested, re-sent by <see cref="Refresh"/>.</summary>
     private GammaRamp _requestedRamp = GammaRamp.Linear;
 
+    /// <summary>
+    /// Strongest fraction of a correction Windows has accepted, used to skip
+    /// the strengths already known to be refused. Reset by
+    /// <see cref="Refresh"/>, which is the moment the answer could have changed.
+    /// </summary>
+    private double _strongestAccepted = 1d;
+
     private bool _disposed;
 
     public WindowsGammaController(
@@ -109,6 +116,11 @@ public sealed class WindowsGammaController : IGammaController
         // HDR can be toggled per display at any time, and the only signals that
         // it happened are the same ones that bring us here.
         _hdrChecked = false;
+
+        // Re-probe the full correction. The registry opt-in is machine-wide, so
+        // one limit covers every display, but it can be granted while running —
+        // and then it takes a sign-out, which passes through here.
+        _strongestAccepted = 1d;
 
         Write(_requestedRamp);
     }
@@ -243,8 +255,7 @@ public sealed class WindowsGammaController : IGammaController
     }
 
     /// <summary>
-    /// Fractions of the requested correction to fall back through when Windows
-    /// refuses the full one.
+    /// Strengths to offer a display, from the full correction downwards.
     /// </summary>
     /// <remarks>
     /// Without this the slider simply stops working below some temperature: the
@@ -254,13 +265,7 @@ public sealed class WindowsGammaController : IGammaController
     /// which is a far better answer than none. The panel still offers the
     /// registry change for the full range.
     /// </remarks>
-    private static readonly double[] FallbackScales = [0.8d, 0.6d, 0.45d, 0.3d, 0.2d];
-
-    /// <summary>
-    /// Fraction of the correction last accepted, used as the starting point
-    /// next time so the search is not repeated on every write.
-    /// </summary>
-    private double _lastAcceptedScale = 1d;
+    private static readonly double[] Strengths = [1d, 0.8d, 0.6d, 0.45d, 0.3d, 0.2d];
 
     /// <summary>
     /// Blends a ramp towards the identity, so a milder version of the same
@@ -284,10 +289,12 @@ public sealed class WindowsGammaController : IGammaController
     /// Writes the strongest version of a ramp the display will take.
     /// </summary>
     /// <remarks>
-    /// Tries the full correction, and on refusal works down through
-    /// <see cref="FallbackScales"/> until something is accepted. The scale that
-    /// worked is remembered and tried first next time, so a restricted machine
-    /// pays for the search once rather than on every slider movement.
+    /// Works down through <see cref="Strengths"/> until one is accepted,
+    /// skipping any already known to be refused — otherwise a restricted
+    /// machine would repeat the whole search on every slider movement, which at
+    /// sixty events a second is several driver writes and a blended table each
+    /// time. <see cref="Refresh"/> clears that memory, since a display change
+    /// is also when the registry opt-in would have taken effect.
     /// </remarks>
     private bool TryWriteTo(DisplayInfo display, GammaRamp ramp)
     {
@@ -303,32 +310,43 @@ public sealed class WindowsGammaController : IGammaController
 
         try
         {
-            if (Gdi32.SetDeviceGammaRamp(deviceContext, ramp.Values))
+            foreach (double strength in Strengths)
             {
-                _lastAcceptedScale = 1d;
-                return true;
-            }
-
-            foreach (double scale in FallbackScales)
-            {
-                if (Gdi32.SetDeviceGammaRamp(deviceContext, Soften(ramp, scale).Values))
+                if (strength > _strongestAccepted)
                 {
-                    if (scale != _lastAcceptedScale)
-                    {
-                        _logger.LogInformation(
-                            "Windows refused the full correction on {DisplayId}; applied {Percent:0}% of it instead. "
-                            + "The extended gamma range unlocks the rest.",
-                            display.Id,
-                            scale * 100d);
-                    }
-
-                    _lastAcceptedScale = scale;
-
-                    // Reported as a rejection even though something was applied,
-                    // so the panel keeps offering the registry change: the user
-                    // asked for a warmth they are not getting.
-                    return false;
+                    continue;
                 }
+
+                // The full correction is the ramp itself; blending it against
+                // the identity at 100% would only cost an allocation to arrive
+                // back at the same table.
+                ushort[] values = strength >= 1d ? ramp.Values : Soften(ramp, strength).Values;
+
+                if (!Gdi32.SetDeviceGammaRamp(deviceContext, values))
+                {
+                    continue;
+                }
+
+                if (strength >= 1d)
+                {
+                    return true;
+                }
+
+                if (strength != _strongestAccepted)
+                {
+                    _logger.LogInformation(
+                        "Windows refused the full correction on {DisplayId}; applied {Percent:0}% of it instead. "
+                        + "The extended gamma range unlocks the rest.",
+                        display.Id,
+                        strength * 100d);
+
+                    _strongestAccepted = strength;
+                }
+
+                // Reported as a rejection even though something was applied, so
+                // the panel keeps offering the registry change: the user asked
+                // for a warmth they are not getting.
+                return false;
             }
 
             _logger.LogDebug(
