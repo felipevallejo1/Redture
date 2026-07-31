@@ -242,6 +242,53 @@ public sealed class WindowsGammaController : IGammaController
         _hdrDisplays = _hdrDetector.FindHdrDisplays();
     }
 
+    /// <summary>
+    /// Fractions of the requested correction to fall back through when Windows
+    /// refuses the full one.
+    /// </summary>
+    /// <remarks>
+    /// Without this the slider simply stops working below some temperature: the
+    /// ramp is refused outright and the screen keeps whatever it had, so the
+    /// control moves and nothing happens. Stepping down until something is
+    /// accepted gives the user the warmest setting the machine actually allows,
+    /// which is a far better answer than none. The panel still offers the
+    /// registry change for the full range.
+    /// </remarks>
+    private static readonly double[] FallbackScales = [0.8d, 0.6d, 0.45d, 0.3d, 0.2d];
+
+    /// <summary>
+    /// Fraction of the correction last accepted, used as the starting point
+    /// next time so the search is not repeated on every write.
+    /// </summary>
+    private double _lastAcceptedScale = 1d;
+
+    /// <summary>
+    /// Blends a ramp towards the identity, so a milder version of the same
+    /// correction can be offered when the full one is refused.
+    /// </summary>
+    private static GammaRamp Soften(GammaRamp ramp, double scale)
+    {
+        GammaRamp linear = GammaRamp.LinearWithSize(ramp.LevelsPerChannel);
+        ushort[] blended = new ushort[ramp.Values.Length];
+
+        for (int i = 0; i < blended.Length; i++)
+        {
+            double value = linear.Values[i] + ((ramp.Values[i] - linear.Values[i]) * scale);
+            blended[i] = (ushort)Math.Clamp(Math.Round(value), 0d, GammaRamp.MaxValue);
+        }
+
+        return GammaRamp.FromValues(blended, ramp.LevelsPerChannel);
+    }
+
+    /// <summary>
+    /// Writes the strongest version of a ramp the display will take.
+    /// </summary>
+    /// <remarks>
+    /// Tries the full correction, and on refusal works down through
+    /// <see cref="FallbackScales"/> until something is accepted. The scale that
+    /// worked is remembered and tried first next time, so a restricted machine
+    /// pays for the search once rather than on every slider movement.
+    /// </remarks>
     private bool TryWriteTo(DisplayInfo display, GammaRamp ramp)
     {
         nint deviceContext = Gdi32.CreateDCW("DISPLAY", display.Id, null, 0);
@@ -258,11 +305,34 @@ public sealed class WindowsGammaController : IGammaController
         {
             if (Gdi32.SetDeviceGammaRamp(deviceContext, ramp.Values))
             {
+                _lastAcceptedScale = 1d;
                 return true;
             }
 
+            foreach (double scale in FallbackScales)
+            {
+                if (Gdi32.SetDeviceGammaRamp(deviceContext, Soften(ramp, scale).Values))
+                {
+                    if (scale != _lastAcceptedScale)
+                    {
+                        _logger.LogInformation(
+                            "Windows refused the full correction on {DisplayId}; applied {Percent:0}% of it instead. "
+                            + "The extended gamma range unlocks the rest.",
+                            display.Id,
+                            scale * 100d);
+                    }
+
+                    _lastAcceptedScale = scale;
+
+                    // Reported as a rejection even though something was applied,
+                    // so the panel keeps offering the registry change: the user
+                    // asked for a warmth they are not getting.
+                    return false;
+                }
+            }
+
             _logger.LogDebug(
-                "SetDeviceGammaRamp was refused for {DisplayId} (error {Error}).",
+                "SetDeviceGammaRamp was refused for {DisplayId} at every strength (error {Error}).",
                 display.Id,
                 Marshal.GetLastWin32Error());
             return false;

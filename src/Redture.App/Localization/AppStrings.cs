@@ -76,6 +76,8 @@ public sealed class AppStrings
     public required string GammaRangeUnlocked { get; init; }
     public required string GammaRangeHowTo { get; init; }
 
+    public required string Copy { get; init; }
+
     // --- Conflict -------------------------------------------------------
     public required string ConflictTitle { get; init; }
 
@@ -228,6 +230,7 @@ public sealed class AppStrings
             + "Turning HDR off restores it.",
 
         GammaRangeTitle = "Extended gamma range",
+        Copy = "Copy",
         GammaRangeRestricted =
             "Windows limits how far a gamma ramp may deviate from linear, which caps how warm any colour tool "
             + "can go. Lifting it is a machine-wide change that needs administrator rights and a sign-out.",
@@ -345,6 +348,7 @@ public sealed class AppStrings
             + "efecto. Apagando HDR vuelve a funcionar.",
 
         GammaRangeTitle = "Rango de gamma extendido",
+        Copy = "Copiar",
         GammaRangeRestricted =
             "Windows limita cuánto puede alejarse de lineal una curva de gamma, y eso pone un techo a lo cálida "
             + "que puede ponerse cualquier herramienta de color. Levantarlo es un cambio de toda la máquina que "

@@ -64,6 +64,24 @@ public sealed class GammaRamp
         Create(1d, 1d, 1d, levelsPerChannel);
 
     /// <summary>
+    /// Wraps a table that was produced some other way than from per-channel
+    /// gains — blending two ramps together, for instance.
+    /// </summary>
+    public static GammaRamp FromValues(ushort[] values, int levelsPerChannel)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        if (values.Length != Channels * levelsPerChannel)
+        {
+            throw new ArgumentException(
+                $"Expected {Channels * levelsPerChannel} entries for {levelsPerChannel} levels, got {values.Length}.",
+                nameof(values));
+        }
+
+        return new GammaRamp(values, levelsPerChannel);
+    }
+
+    /// <summary>
     /// Builds a ramp from per-channel gains applied to the encoded values.
     /// </summary>
     public static GammaRamp Create(

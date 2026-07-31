@@ -265,10 +265,18 @@
 
             <!-- Selectable so it can be read and copied, and never run by
                  Redture. See IGammaRangeUnlock.UnlockCommand for why. -->
-            <TextBox Text="{Binding GammaRangeCommand, Mode=OneWay}"
-                     IsReadOnly="True" FontSize="10"
-                     FontFamily="Consolas,Menlo,monospace"
-                     TextWrapping="Wrap" />
+            <Grid ColumnDefinitions="*,8,Auto">
+              <TextBox Grid.Column="0"
+                       Text="{Binding GammaRangeCommand, Mode=OneWay}"
+                       IsReadOnly="True" FontSize="10"
+                       FontFamily="Consolas,Menlo,monospace"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center" />
+              <Button Grid.Column="2" Content="{Binding Strings.Copy}"
+                      Padding="10,5" FontSize="11"
+                      VerticalAlignment="Center"
+                      Click="OnCopyGammaCommand" />
+            </Grid>
           </StackPanel>
         </Border>
 
