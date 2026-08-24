@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
 namespace Redture.Platform.Windows.Interop;
@@ -211,6 +211,24 @@ internal static class User32
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool GetWindowRect(nint hWnd, out Rect rect);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool IsWindowVisible(nint hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool IsIconic(nint hWnd);
+
+    /// <summary>Window style bits; pass <see cref="GwlStyle"/>.</summary>
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    internal static extern nint GetWindowLongPtrW(nint hWnd, int index);
+
+    /// <summary>Index of the window style word, for <see cref="GetWindowLongPtrW"/>.</summary>
+    internal const int GwlStyle = -16;
+
+    /// <summary>A window with a title bar. Fullscreen windows do not have one.</summary>
+    internal const long WsCaption = 0x00C0_0000L;
 
     [DllImport("user32.dll")]
     internal static extern nint MonitorFromWindow(nint hWnd, uint flags);

@@ -1,3 +1,4 @@
+﻿using System.Diagnostics;
 using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
 using Redture.Platform.Abstractions.SystemEvents;
@@ -9,7 +10,10 @@ namespace Redture.Platform.Windows.SystemEvents;
 /// <remarks>
 /// <para>
 /// Decides by inspecting the foreground window: which process owns it, what
-/// class it is, and whether its rectangle covers the monitor it sits on.
+/// class it is, whether it still has a title bar, and whether its rectangle
+/// covers the monitor it sits on. A change has to hold for a moment before it
+/// reaches the display, since switching between windows briefly puts
+/// screen-sized surfaces in front.
 /// </para>
 /// <para>
 /// The obvious alternative, <c>SHQueryUserNotificationState</c>, cannot be used
@@ -45,20 +49,47 @@ public sealed class WindowsFullscreenDetector : IFullscreenDetector
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
 
     /// <summary>
-    /// Windows that are always the size of the screen and never mean fullscreen:
-    /// the desktop itself, its wallpaper host, and the taskbar.
+    /// How long a change has to hold before it reaches the display.
     /// </summary>
-    private static readonly string[] ShellClassNames =
+    /// <remarks>
+    /// Switching windows briefly puts surfaces in front that are the size of
+    /// the screen, and the state was measured flipping for as little as 68 ms
+    /// at a time — each flip taking the tint and the backlight with it. Nobody
+    /// wants a reaction to a fullscreen application that existed for a
+    /// fifteenth of a second, and nobody notices four tenths of a second on
+    /// their way into a game.
+    /// </remarks>
+    private static readonly TimeSpan ConfirmationDelay = TimeSpan.FromMilliseconds(400);
+
+    /// <summary>
+    /// Window classes that cover the screen without an application meaning to
+    /// own it: the desktop and taskbar, the shell surfaces behind Task View,
+    /// Alt-Tab and Snap Assist, and the staging window Windows puts in front
+    /// for a moment while activation moves between applications.
+    /// </summary>
+    private static readonly string[] IgnoredClassNames =
     [
         "Progman",
         "WorkerW",
         "Shell_TrayWnd",
+        "ForegroundStaging",
+        "XamlExplorerHostIslandWindow",
+        "MultitaskingViewFrame",
+        "Windows.UI.Core.CoreWindow",
+        "TaskListThumbnailWnd",
     ];
 
     private readonly ILogger<WindowsFullscreenDetector> _logger;
     private readonly WinEventProcedure _callback;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly uint _ownProcessId = (uint)Environment.ProcessId;
+
+    /// <summary>
+    /// Ticket for the change awaiting confirmation. Bumped by every evaluation,
+    /// so a state that comes back on its own cancels its own confirmation
+    /// rather than being applied late.
+    /// </summary>
+    private int _pending;
 
     private nint _hook;
     private Task? _poll;
@@ -150,20 +181,89 @@ public sealed class WindowsFullscreenDetector : IFullscreenDetector
 
     private void Evaluate()
     {
-        bool fullscreen = ForegroundWindowCoversAMonitor() || ShellReportsExclusiveFullscreen();
+        bool fullscreen = IsFullscreen();
 
-        if (fullscreen == IsFullscreenActive)
+        // Any evaluation that agrees with the state on the display also cancels
+        // whatever was waiting to change it.
+        int ticket = Interlocked.Increment(ref _pending);
+
+        if (fullscreen != IsFullscreenActive)
+        {
+            _ = ConfirmAsync(ticket, fullscreen);
+        }
+    }
+
+    /// <summary>
+    /// Applies a change once it has survived <see cref="ConfirmationDelay"/>.
+    /// </summary>
+    private async Task ConfirmAsync(int ticket, bool fullscreen)
+    {
+        try
+        {
+            await Task.Delay(ConfirmationDelay, _shutdown.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        // Overtaken by a later evaluation, or the window went away while we
+        // were waiting on it.
+        if (Volatile.Read(ref _pending) != ticket
+            || fullscreen == IsFullscreenActive
+            || IsFullscreen() != fullscreen)
         {
             return;
         }
 
         IsFullscreenActive = fullscreen;
-        _logger.LogInformation(
-            fullscreen
-                ? "An application has taken over the screen; standing down."
-                : "The desktop is back; restoring display corrections.");
+
+        if (fullscreen)
+        {
+            // Named, because "an application" is no use to somebody trying to
+            // work out why their screen changed while they were doing nothing
+            // of the sort.
+            _logger.LogInformation(
+                "{Window} has taken over the screen; standing down.",
+                DescribeForegroundWindow());
+        }
+        else
+        {
+            _logger.LogInformation("The desktop is back; restoring display corrections.");
+        }
 
         FullscreenStateChanged?.Invoke(this, fullscreen);
+    }
+
+    private bool IsFullscreen() =>
+        ForegroundWindowCoversAMonitor() || ShellReportsExclusiveFullscreen();
+
+    /// <summary>
+    /// The foreground window's owning process and class, for the log.
+    /// </summary>
+    private static string DescribeForegroundWindow()
+    {
+        nint foreground = User32.GetForegroundWindow();
+        if (foreground == 0)
+        {
+            return "An application";
+        }
+
+        User32.GetWindowThreadProcessId(foreground, out uint processId);
+
+        string name;
+        try
+        {
+            using Process process = Process.GetProcessById((int)processId);
+            name = process.ProcessName;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            // Exited between the two calls; the class name is still worth having.
+            name = "an application";
+        }
+
+        return $"{name} ({ClassNameOf(foreground)})";
     }
 
     /// <summary>
@@ -187,7 +287,23 @@ public sealed class WindowsFullscreenDetector : IFullscreenDetector
             return false;
         }
 
-        if (IsShellWindow(foreground))
+        if (Array.Exists(IgnoredClassNames, name => name == ClassNameOf(foreground)))
+        {
+            return false;
+        }
+
+        if (!User32.IsWindowVisible(foreground) || User32.IsIconic(foreground))
+        {
+            return false;
+        }
+
+        // The rule that separates a fullscreen window from a merely large one.
+        // A maximized window is the size of the screen too, and on a machine
+        // whose taskbar hides itself it covers every pixel of it — but it keeps
+        // its title bar, and no application that has taken over the screen
+        // does. Going fullscreen in place, as a browser does on F11, removes
+        // the caption, which is exactly the transition worth reacting to.
+        if ((User32.GetWindowLongPtrW(foreground, User32.GwlStyle) & User32.WsCaption) == User32.WsCaption)
         {
             return false;
         }
@@ -217,18 +333,11 @@ public sealed class WindowsFullscreenDetector : IFullscreenDetector
             && window.Bottom >= info.Monitor.Bottom;
     }
 
-    private static bool IsShellWindow(nint window)
+    private static string ClassNameOf(nint window)
     {
         char[] buffer = new char[64];
         int length = User32.GetClassNameW(window, buffer, buffer.Length);
-
-        if (length <= 0)
-        {
-            return false;
-        }
-
-        string className = new(buffer, 0, length);
-        return Array.Exists(ShellClassNames, name => string.Equals(name, className, StringComparison.Ordinal));
+        return length > 0 ? new string(buffer, 0, length) : string.Empty;
     }
 
     /// <summary>
