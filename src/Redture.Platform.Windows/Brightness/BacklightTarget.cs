@@ -1,4 +1,4 @@
-using System.Runtime.Versioning;
+﻿using System.Runtime.Versioning;
 using Microsoft.Extensions.Logging;
 using Redture.Platform.Abstractions.Brightness;
 
@@ -38,7 +38,20 @@ internal abstract class BacklightTarget : IDisposable
     public BrightnessMechanism Mechanism { get; }
 
     /// <summary>Level the display had when Redture took over, 0–100.</summary>
-    public double InitialPercent { get; }
+    public double InitialPercent { get; private set; }
+
+    /// <summary>
+    /// Replaces the level read at discovery with one remembered from an
+    /// earlier discovery of the same display.
+    /// </summary>
+    /// <remarks>
+    /// Discovery re-runs on every display change, and by then the monitor is
+    /// showing Redture's dimming rather than the user's own level. Without
+    /// this, that dimmed value is adopted as the one to hand back, and each
+    /// change ratchets it further down until giving the display back does
+    /// nothing at all.
+    /// </remarks>
+    public void AdoptRememberedInitial(double percent) => InitialPercent = percent;
 
     public HardwareBrightnessTarget ToDescriptor() => new(DisplayId, Name, Mechanism, InitialPercent);
 

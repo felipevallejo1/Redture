@@ -1,4 +1,4 @@
-using System.Runtime.Versioning;
+﻿using System.Runtime.Versioning;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Redture.Platform.Abstractions.Brightness;
@@ -44,6 +44,13 @@ public sealed class WindowsHardwareBrightnessController : IHardwareBrightnessCon
         });
 
     private readonly CancellationTokenSource _shutdown = new();
+
+    /// <summary>
+    /// The level each display was at before Redture touched it, keyed by
+    /// display id and kept for the lifetime of the process. Guarded by
+    /// <see cref="_gate"/> along with the targets it describes.
+    /// </summary>
+    private readonly Dictionary<string, double> _initialLevels = [];
 
     private DdcCiSession? _ddcSession;
     private WmiPanelBacklightTarget? _panelTarget;
@@ -113,6 +120,8 @@ public sealed class WindowsHardwareBrightnessController : IHardwareBrightnessCon
             {
                 _targets.Add(_panelTarget);
             }
+
+            RememberOrRestoreInitialLevels();
 
             _logger.LogInformation(
                 "Backlight control: {Count} controllable display(s).",
@@ -193,6 +202,29 @@ public sealed class WindowsHardwareBrightnessController : IHardwareBrightnessCon
     }
 
     /// <summary>Releases handles. The caller must hold <see cref="_gate"/>.</summary>
+    /// <summary>
+    /// Keeps each display's pre-Redture level across re-discovery.
+    /// </summary>
+    /// <remarks>
+    /// The first time a display is seen, whatever it is showing is the user's
+    /// own level and worth recording. Every time after that it is showing
+    /// Redture's dimming, so the recorded value is the one to keep.
+    /// </remarks>
+    private void RememberOrRestoreInitialLevels()
+    {
+        foreach (BacklightTarget target in _targets)
+        {
+            if (_initialLevels.TryGetValue(target.DisplayId, out double remembered))
+            {
+                target.AdoptRememberedInitial(remembered);
+            }
+            else
+            {
+                _initialLevels[target.DisplayId] = target.InitialPercent;
+            }
+        }
+    }
+
     private void ReleaseTargets()
     {
         _targets.Clear();

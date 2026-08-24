@@ -210,38 +210,24 @@ public sealed class DisplayCoordinator : IDisposable
 
         AppSettings settings = _settingsStore.Current;
 
-        if (!settings.EffectsEnabled)
+        // Two reasons to give the screen back exactly as Redture found it: the
+        // corrections are switched off, and an application owns the whole
+        // screen. They mean the same thing to the display, so they are one
+        // path — standing down should be indistinguishable from quitting.
+        //
+        // Withdrawing only the overlay, as this used to, left the tint on and
+        // the backlight down: of the three things Redture does to a screen,
+        // the only one it stopped doing was the one hardest to notice.
+        if (!settings.EffectsEnabled
+            || (settings.SuspendInFullscreen && _fullscreen.IsFullscreenActive))
         {
-            _overlay.SetOpacity(0d);
-            _gamma.Apply(GammaRamp.Linear);
-            _conflicts.SetTintApplied(false);
-
-            if (!_backlightReleased)
-            {
-                _hardware.RestoreInitial();
-                _backlightReleased = true;
-            }
-
+            StandDown();
             return;
         }
 
         _backlightReleased = false;
 
-        // Standing down for an application that owns the screen. It is asked
-        // for as one thing — "leave games alone" — so it has to be all three
-        // corrections, not just the one that is easiest to withdraw. A film
-        // graded by somebody else, seen through a red filter at a third of the
-        // brightness, is not being left alone.
-        //
-        // Expressed as a position rather than as a separate code path: the
-        // neutral temperature and the top of the brightness slider, pushed
-        // through the same mapping as any other setting. Coming back is then
-        // nothing more than reading the real values again.
-        bool standDown = settings.SuspendInFullscreen && _fullscreen.IsFullscreenActive;
-
-        int temperature = standDown ? AppSettings.NeutralTemperatureKelvin : EffectiveTemperatureKelvin;
-        double brightness = standDown ? AppSettings.MaxBrightness : settings.Brightness;
-
+        int temperature = EffectiveTemperatureKelvin;
         _gamma.Apply(GammaRampBuilder.Build(temperature));
 
         // Only worth watching for a conflict while Redture is actually asking
@@ -249,7 +235,7 @@ public sealed class DisplayCoordinator : IDisposable
         _conflicts.SetTintApplied(temperature != AppSettings.NeutralTemperatureKelvin);
 
         BrightnessPlan plan = BrightnessMapper.Map(
-            brightness,
+            settings.Brightness,
             settings.MaxOverlayOpacity,
             _hardware.IsAvailable);
 
@@ -258,6 +244,26 @@ public sealed class DisplayCoordinator : IDisposable
         if (plan.HardwareBrightness is { } backlight)
         {
             _hardware.SetBrightness(backlight);
+        }
+    }
+
+    /// <summary>
+    /// Leaves the screen the way Redture found it: no tint, no overlay, and the
+    /// backlight back at the level the user had.
+    /// </summary>
+    private void StandDown()
+    {
+        _overlay.SetOpacity(0d);
+        _gamma.Apply(GammaRamp.Linear);
+        _conflicts.SetTintApplied(false);
+
+        // Each restore is a blocking round trip to the monitor, and Apply runs
+        // on every settings change, so this has to happen once per stand-down
+        // rather than on every call made while one is in force.
+        if (!_backlightReleased)
+        {
+            _hardware.RestoreInitial();
+            _backlightReleased = true;
         }
     }
 
