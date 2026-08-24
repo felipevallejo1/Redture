@@ -201,6 +201,15 @@
                           OffContent="{Binding Strings.CorrectionsOff}" />
             <TextBlock Classes="hint"
                        Text="{Binding Strings.CorrectionsHint}" />
+
+            <!-- Belongs with the master switch rather than under brightness:
+                 it withdraws the tint as well, and reads as dimming-only when
+                 it sits in the brightness card. -->
+            <ToggleSwitch Margin="0,14,0,0"
+                          IsChecked="{Binding SuspendInFullscreen}"
+                          OnContent="{Binding Strings.SuspendFullscreenOn}"
+                          OffContent="{Binding Strings.SuspendFullscreenOff}" />
+            <TextBlock Classes="hint" Text="{Binding FullscreenStatus}" />
           </StackPanel>
         </Border>
 
@@ -221,11 +230,6 @@
             <TextBlock Classes="hint" Margin="0,6,0,0"
                        Text="{Binding Strings.OverlayHint}" />
 
-            <ToggleSwitch Margin="0,10,0,0"
-                          IsChecked="{Binding SuspendInFullscreen}"
-                          OnContent="{Binding Strings.SuspendFullscreenOn}"
-                          OffContent="{Binding Strings.SuspendFullscreenOff}" />
-            <TextBlock Classes="hint" Text="{Binding FullscreenStatus}" />
           </StackPanel>
         </Border>
 

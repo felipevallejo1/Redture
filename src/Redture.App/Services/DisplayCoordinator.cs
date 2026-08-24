@@ -1,4 +1,4 @@
-using Avalonia.Threading;
+﻿using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
 using Redture.Core.Brightness;
 using Redture.Core.Color;
@@ -227,26 +227,29 @@ public sealed class DisplayCoordinator : IDisposable
 
         _backlightReleased = false;
 
-        int temperature = EffectiveTemperatureKelvin;
+        // Standing down for an application that owns the screen. It is asked
+        // for as one thing — "leave games alone" — so it has to be all three
+        // corrections, not just the one that is easiest to withdraw. A film
+        // graded by somebody else, seen through a red filter at a third of the
+        // brightness, is not being left alone.
+        //
+        // Expressed as a position rather than as a separate code path: the
+        // neutral temperature and the top of the brightness slider, pushed
+        // through the same mapping as any other setting. Coming back is then
+        // nothing more than reading the real values again.
+        bool standDown = settings.SuspendInFullscreen && _fullscreen.IsFullscreenActive;
+
+        int temperature = standDown ? AppSettings.NeutralTemperatureKelvin : EffectiveTemperatureKelvin;
+        double brightness = standDown ? AppSettings.MaxBrightness : settings.Brightness;
+
         _gamma.Apply(GammaRampBuilder.Build(temperature));
 
         // Only worth watching for a conflict while Redture is actually asking
         // for a tint: with a neutral ramp there is nothing to be overwritten.
         _conflicts.SetTintApplied(temperature != AppSettings.NeutralTemperatureKelvin);
 
-        // An application owning the screen sits below nothing: the overlay would
-        // not be visible over exclusive fullscreen, and competing for z-order
-        // with a game produces exactly the flicker this design avoids
-        // everywhere else. The gamma ramp above is still applied — it costs
-        // nothing, and some fullscreen applications leave it alone.
-        if (settings.SuspendOverlayInFullscreen && _fullscreen.IsFullscreenActive)
-        {
-            _overlay.SetOpacity(0d);
-            return;
-        }
-
         BrightnessPlan plan = BrightnessMapper.Map(
-            settings.Brightness,
+            brightness,
             settings.MaxOverlayOpacity,
             _hardware.IsAvailable);
 

@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -123,7 +123,7 @@ public sealed partial class ControlPanelViewModel : ObservableObject
         _brightness = settings.Brightness;
         _temperatureKelvin = settings.TemperatureKelvin;
         _automationEnabled = settings.AutomationEnabled;
-        _suspendInFullscreen = settings.SuspendOverlayInFullscreen;
+        _suspendInFullscreen = settings.SuspendInFullscreen;
 
         ScheduleSettings schedule = settings.Schedule;
         _dayTemperatureKelvin = schedule.DayTemperatureKelvin;
@@ -445,14 +445,14 @@ public sealed partial class ControlPanelViewModel : ObservableObject
 
     partial void OnSuspendInFullscreenChanged(bool value)
     {
-        Persist(s => s.SuspendOverlayInFullscreen = value);
+        Persist(s => s.SuspendInFullscreen = value);
         OnPropertyChanged(nameof(FullscreenStatus));
     }
 
     /// <summary>
-    /// Says whether the overlay is standing down right now. Without it there is
-    /// no way to tell the feature works short of launching a game and staring
-    /// at the screen.
+    /// Says whether Redture is standing down right now. Without it there is no
+    /// way to tell the feature works short of launching a game and staring at
+    /// the screen.
     /// </summary>
     public string FullscreenStatus => _coordinator.IsFullscreenActive
         ? Strings.FullscreenActive

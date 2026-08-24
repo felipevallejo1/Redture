@@ -1,3 +1,5 @@
+﻿using System.Text.Json.Serialization;
+
 namespace Redture.Core.Settings;
 
 /// <summary>
@@ -96,17 +98,27 @@ public sealed class AppSettings
     public bool StartWithSystem { get; set; }
 
     /// <summary>
-    /// Whether the dimming overlay stands down while an application owns the
-    /// whole screen.
+    /// Whether every correction stands down while an application owns the whole
+    /// screen.
     /// </summary>
     /// <remarks>
-    /// On by default, because an overlay cannot appear above exclusive
-    /// fullscreen anyway and competing for z-order with a game causes flicker.
-    /// Worth being a choice rather than a rule: somebody watching a film at
-    /// night may well want the screen to stay dimmed, and borderless fullscreen
-    /// — which is most things now — can be covered perfectly well.
+    /// <para>
+    /// On by default. Games and films are colour-graded work meant to be seen
+    /// as their authors left them, and an overlay cannot appear above exclusive
+    /// fullscreen in any case.
+    /// </para>
+    /// <para>
+    /// Worth being a choice rather than a rule: somebody watching a film late
+    /// at night may well prefer to keep the warmth.
+    /// </para>
     /// </remarks>
-    public bool SuspendOverlayInFullscreen { get; set; } = true;
+    /// <value>
+    /// Stored under its original name. The setting used to withdraw only the
+    /// overlay, and renaming the key would quietly reset it for anybody who had
+    /// turned it off.
+    /// </value>
+    [JsonPropertyName("suspendOverlayInFullscreen")]
+    public bool SuspendInFullscreen { get; set; } = true;
 
     /// <summary>User-configurable cap on overlay opacity, clamped to
     /// <see cref="AbsoluteMaxOverlayOpacity"/>.</summary>
