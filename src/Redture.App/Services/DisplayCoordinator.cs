@@ -210,16 +210,7 @@ public sealed class DisplayCoordinator : IDisposable
 
         AppSettings settings = _settingsStore.Current;
 
-        // Two reasons to give the screen back exactly as Redture found it: the
-        // corrections are switched off, and an application owns the whole
-        // screen. They mean the same thing to the display, so they are one
-        // path — standing down should be indistinguishable from quitting.
-        //
-        // Withdrawing only the overlay, as this used to, left the tint on and
-        // the backlight down: of the three things Redture does to a screen,
-        // the only one it stopped doing was the one hardest to notice.
-        if (!settings.EffectsEnabled
-            || (settings.SuspendInFullscreen && _fullscreen.IsFullscreenActive))
+        if (!settings.EffectsEnabled)
         {
             StandDown();
             return;
@@ -227,7 +218,19 @@ public sealed class DisplayCoordinator : IDisposable
 
         _backlightReleased = false;
 
-        int temperature = EffectiveTemperatureKelvin;
+        // An application that owns the screen should be seen in the colours its
+        // author chose, so the tint goes. The brightness does not: it is the
+        // level the user picked for the room they are sitting in, and a game
+        // starting is no reason to undo it. Both mechanisms stay — dropping
+        // the overlay too would brighten the screen for anybody dimmed below
+        // the point where the backlight runs out, which is the same surprise
+        // in a different part of the range.
+        bool suspendTint = settings.SuspendInFullscreen && _fullscreen.IsFullscreenActive;
+
+        int temperature = suspendTint
+            ? AppSettings.NeutralTemperatureKelvin
+            : EffectiveTemperatureKelvin;
+
         _gamma.Apply(GammaRampBuilder.Build(temperature));
 
         // Only worth watching for a conflict while Redture is actually asking
@@ -249,7 +252,9 @@ public sealed class DisplayCoordinator : IDisposable
 
     /// <summary>
     /// Leaves the screen the way Redture found it: no tint, no overlay, and the
-    /// backlight back at the level the user had.
+    /// backlight back at the level the user had. Reached when the corrections
+    /// are switched off, which is the only case that means Redture should be
+    /// invisible — a fullscreen application only suspends the tint.
     /// </summary>
     private void StandDown()
     {

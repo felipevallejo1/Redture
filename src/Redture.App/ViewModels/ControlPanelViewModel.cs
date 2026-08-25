@@ -450,9 +450,9 @@ public sealed partial class ControlPanelViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Says whether Redture is standing down right now. Without it there is no
-    /// way to tell the feature works short of launching a game and staring at
-    /// the screen.
+    /// Says whether the colour filter is suspended right now. Without it there
+    /// is no way to tell the feature works short of launching a game and
+    /// staring at the screen.
     /// </summary>
     public string FullscreenStatus => _coordinator.IsFullscreenActive
         ? Strings.FullscreenActive
